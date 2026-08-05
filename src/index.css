@@ -1,0 +1,425 @@
+@import "tailwindcss";
+
+/* Class-based dark variant: follows the app's theme toggle (.dark on <html>/<body>),
+   matching the html.dark rules below instead of the OS media query. */
+@custom-variant dark (&:where(.dark, .dark *));
+
+/* ------------------------------------------------------------------
+   Design tokens
+   - @theme redefines the blue scale into one refined accent (saturation
+     below 80%) so every utility (bg-blue-600, text-blue-600,
+     shadow-blue-100, focus:ring-blue-500, ...) inherits the tuned hue
+     without touching component files.
+   - --oc-* custom properties hold the light/dark surface system consumed
+     by the override rules below.
+------------------------------------------------------------------- */
+@theme {
+  --font-sans: 'Alexandria', system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  --font-mono: 'JetBrains Mono', ui-monospace, SFMono-Regular, Menlo, monospace;
+
+  --color-blue-50: #eef4ff;
+  --color-blue-100: #dfe9fe;
+  --color-blue-200: #c0d4fc;
+  --color-blue-300: #96b5f8;
+  --color-blue-400: #6a90f2;
+  --color-blue-500: #4670ea;
+  --color-blue-600: #2c55dd;
+  --color-blue-700: #2447bf;
+  --color-blue-800: #1f3a96;
+  --color-blue-900: #1c3377;
+  --color-blue-950: #141f4d;
+}
+
+:root {
+  --oc-canvas: #f1f5f9;
+  --oc-surface: #ffffff;
+  --oc-panel: #f8fafc;
+  --oc-border: #e2e8f0;
+  --oc-border-strong: #cbd5e1;
+  --oc-ink: #1e293b;
+  --oc-ink-muted: #64748b;
+  --oc-blue-600: #2c55dd;
+  --oc-focus: #2c55dd;
+  --oc-gold: #d97706;
+  --oc-amber-500: #f59e0b;
+  /* Legacy aliases kept for compatibility */
+  --oc-paper: #f1f5f9;
+}
+
+html.dark {
+  --oc-canvas: #0b1329;
+  --oc-surface: #0f172a;
+  --oc-panel: #172554;
+  --oc-border: #1e293b;
+  --oc-border-strong: #334155;
+  --oc-ink: #f8fafc;
+  --oc-ink-muted: #cbd5e1;
+  --oc-blue-600: #6a90f2;
+  --oc-focus: #96b5f8;
+  --oc-gold: #f59e0b;
+  --oc-amber-500: #f59e0b;
+  --oc-paper: #0b1329;
+}
+
+@layer base {
+  html {
+    font-family: 'Alexandria', system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+    /* Fixed-width figures so money, counters and the live clock never jitter */
+    font-variant-numeric: tabular-nums;
+    scroll-behavior: smooth;
+  }
+
+  body {
+    text-wrap: pretty;
+  }
+
+  ::selection {
+    background-color: var(--oc-blue-600);
+    color: #ffffff;
+  }
+
+  html.dark ::selection {
+    background-color: var(--oc-blue-300, #96b5f8);
+    color: #0b1329;
+  }
+
+  /* Visible keyboard focus on interactive elements; inputs keep their own rings */
+  :where(button, a, [role='button']):focus-visible {
+    outline: 2px solid var(--oc-focus);
+    outline-offset: 2px;
+  }
+}
+
+/* ----------------------------------------------------------------
+   Light Mode Eye-Comfort Soft Off-White / Light Gray Canvas (#f1f5f9)
+----------------------------------------------------------------- */
+html:not(.dark),
+html:not(.dark) body,
+html:not(.dark) main,
+html:not(.dark) #root,
+html:not(.dark) .min-h-screen,
+html:not(.dark) .bg-slate-50,
+html:not(.dark) div#root > div,
+html:not(.dark) div#root > div > div {
+  background-color: var(--oc-canvas);
+  color: #1e293b;
+}
+
+html:not(.dark) main {
+  background-color: var(--oc-canvas) !important;
+}
+
+/* ----------------------------------------------------------------
+   Dark Mode Deep Blue Canvas Palette (#0b1329 main dark background)
+----------------------------------------------------------------- */
+html.dark, body.dark, html.dark main, html.dark #root, html.dark .min-h-screen,
+html.dark div#root > div, html.dark div#root > div > div {
+  background-color: var(--oc-canvas) !important;
+  color: #ffffff !important;
+}
+
+/* Main Cards, Header, Sidebar & Modals - Deep Blue Containers */
+html.dark .bg-white,
+html.dark div.bg-white {
+  background-color: var(--oc-surface) !important;
+  color: #ffffff !important;
+  border-color: var(--oc-border) !important;
+}
+
+/* Secondary Panels & Sub-cards - Rich Blue Tinted Background */
+html.dark .bg-slate-100\/80,
+html.dark .bg-slate-100\/50,
+html.dark .bg-slate-100,
+html.dark div.bg-slate-50 {
+  background-color: var(--oc-panel) !important;
+  color: #ffffff !important;
+  border-color: rgba(70, 112, 234, 0.35) !important;
+}
+
+/* Dark Mode Buttons Styling - Deep Blue & Blue Accents */
+html.dark button {
+  color: #ffffff !important;
+}
+
+html.dark button.bg-slate-100,
+html.dark button.bg-slate-50,
+html.dark button.bg-white {
+  background-color: var(--color-blue-900, #1c3377) !important;
+  border-color: #4670ea !important;
+  color: #ffffff !important;
+}
+
+/* Translucent Blue Hover Effects for Interactive Elements & Buttons */
+html.dark button:hover,
+html.dark tbody tr:hover,
+html.dark .hover\:bg-slate-50:hover,
+html.dark .hover\:bg-slate-100:hover {
+  background-color: rgba(31, 58, 150, 0.4) !important;
+  color: #ffffff !important;
+  border-color: rgba(70, 112, 234, 0.5) !important;
+}
+
+html.dark .hover\:bg-slate-200:hover {
+  background-color: var(--color-blue-900, #1c3377) !important;
+  color: #ffffff !important;
+  border-color: rgba(70, 112, 234, 0.5) !important;
+}
+
+/* Borders */
+html.dark .border-slate-200,
+html.dark .border-slate-100,
+html.dark .border-slate-200\/80,
+html.dark .border-slate-300 {
+  border-color: var(--oc-border) !important;
+}
+
+/* Typography Hierarchy - High Contrast White */
+html.dark .text-slate-900,
+html.dark .text-slate-800,
+html.dark .text-slate-700 {
+  color: #ffffff !important;
+}
+
+html.dark .text-slate-600,
+html.dark .text-slate-500 {
+  color: #cbd5e1 !important;
+}
+
+html.dark .text-slate-400 {
+  color: #94a3b8 !important;
+}
+
+/* Semantic text tones - light-hue equivalents so labels, icons and totals stay
+   readable on the navy canvas and keep their hue identity in dark mode. */
+html.dark .text-blue-600 { color: var(--color-blue-300, #96b5f8) !important; }
+html.dark .text-blue-700,
+html.dark .text-blue-800 { color: var(--color-blue-200, #c0d4fc) !important; }
+html.dark .text-blue-900 { color: var(--color-blue-100, #dfe9fe) !important; }
+
+html.dark .text-emerald-600 { color: #34d399 !important; }
+html.dark .text-emerald-700,
+html.dark .text-emerald-800 { color: #6ee7b7 !important; }
+html.dark .text-emerald-900 { color: #a7f3d0 !important; }
+
+html.dark .text-amber-500,
+html.dark .text-amber-600 { color: #fbbf24 !important; }
+html.dark .text-amber-700,
+html.dark .text-amber-800 { color: #fcd34d !important; }
+html.dark .text-amber-900 { color: #fde68a !important; }
+
+html.dark .text-rose-500,
+html.dark .text-rose-600 { color: #fb7185 !important; }
+html.dark .text-rose-700,
+html.dark .text-rose-800 { color: #fda4af !important; }
+
+/* Near-black on the navy canvas stays dark - required for dark-on-gold text
+   inside the amber metric cards and kbd badges. */
+html.dark .text-slate-950 { color: #020617 !important; }
+
+/* Badge Tones - per-hue translucent tints (identity preserved, not flattened
+   to a single blue). Text comes from the semantic text overrides above. */
+html.dark .bg-emerald-50,
+html.dark .bg-emerald-100 {
+  background-color: rgba(16, 185, 129, 0.16) !important;
+  border-color: rgba(16, 185, 129, 0.35) !important;
+}
+
+html.dark .bg-amber-50,
+html.dark .bg-amber-100 {
+  background-color: rgba(245, 158, 11, 0.16) !important;
+  border-color: rgba(245, 158, 11, 0.35) !important;
+}
+
+html.dark .bg-blue-50,
+html.dark .bg-blue-100 {
+  background-color: rgba(70, 112, 234, 0.18) !important;
+  border-color: rgba(150, 181, 248, 0.4) !important;
+}
+
+html.dark .bg-rose-50,
+html.dark .bg-rose-100,
+html.dark .bg-red-50,
+html.dark .bg-red-100 {
+  background-color: rgba(244, 63, 94, 0.16) !important;
+  border-color: rgba(251, 113, 133, 0.4) !important;
+}
+
+/* Light hairline borders inside dark cards -> subtle hue-tinted hairlines */
+html.dark .border-blue-100,
+html.dark .border-blue-200,
+html.dark .border-blue-300,
+html.dark .border-blue-400 {
+  border-color: rgba(70, 112, 234, 0.4) !important;
+}
+
+html.dark .border-emerald-100,
+html.dark .border-emerald-200,
+html.dark .border-emerald-300 {
+  border-color: rgba(16, 185, 129, 0.35) !important;
+}
+
+html.dark .border-amber-100,
+html.dark .border-amber-200,
+html.dark .border-amber-300,
+html.dark .border-amber-400 {
+  border-color: rgba(245, 158, 11, 0.4) !important;
+}
+
+html.dark .border-rose-100,
+html.dark .border-rose-200 {
+  border-color: rgba(244, 63, 94, 0.4) !important;
+}
+
+/* Neutral raised fills that were left light in dark mode */
+html.dark .bg-slate-200 {
+  background-color: var(--oc-border) !important;
+}
+
+/* Light solid shadows become invisible/washed on navy -> deep soft shadow */
+html.dark .shadow-blue-100,
+html.dark .shadow-blue-200,
+html.dark .shadow-amber-100,
+html.dark .shadow-rose-100 {
+  box-shadow: 0 10px 15px -3px rgba(2, 6, 23, 0.55), 0 4px 6px -4px rgba(2, 6, 23, 0.55) !important;
+}
+
+/* Table row dividers */
+html.dark .divide-slate-100 > :not([hidden]) ~ :not([hidden]) {
+  border-color: var(--oc-border) !important;
+}
+
+/* KBD Shortcut Badges - Vibrant Golden Amber */
+html.dark kbd {
+  background-color: var(--oc-amber-500) !important;
+  color: #020617 !important;
+  border-color: #d97706 !important;
+  font-weight: 800 !important;
+}
+
+/* Golden Amber Metric Card - keeps its gold fill in dark mode.
+   Text stays dark-on-gold in both modes (components use explicit dark text
+   classes such as text-slate-950 / text-amber-900 for maximum contrast). */
+html.dark .bg-amber-500 {
+  background-color: var(--oc-amber-500) !important;
+  border-color: #d97706 !important;
+}
+
+html.dark button.bg-amber-500 {
+  color: #020617 !important;
+}
+
+/* Inputs, Selects, Textareas */
+html.dark input,
+html.dark select,
+html.dark textarea {
+  background-color: var(--oc-border) !important;
+  color: #ffffff !important;
+  border-color: var(--oc-border-strong) !important;
+}
+
+html.dark input::placeholder,
+html.dark textarea::placeholder {
+  color: #64748b !important;
+}
+
+/* Header & Sidebar Specific Alignment */
+html.dark header {
+  background-color: var(--oc-surface) !important;
+  border-color: var(--oc-border) !important;
+}
+
+html.dark header h1 {
+  color: #ffffff !important;
+}
+
+html.dark aside {
+  background-color: var(--oc-surface) !important;
+  border-color: var(--oc-border) !important;
+}
+
+/* Table Headers & Rows */
+html.dark thead tr {
+  background-color: var(--oc-border) !important;
+  color: #e2e8f0 !important;
+}
+
+html.dark tbody tr {
+  border-color: var(--oc-border) !important;
+}
+
+/* Translucent Blue Hover Effects in Dark Mode */
+html.dark tbody tr:hover,
+html.dark .hover\:bg-slate-50:hover,
+html.dark .hover\:bg-slate-100:hover,
+html.dark .hover\:bg-slate-200:hover {
+  background-color: rgba(31, 58, 150, 0.25) !important;
+  color: #ffffff !important;
+}
+
+/* Printable Report Sheet - must stay paper white in dark mode.
+   Declared last so it wins the specificity ties against the dark overrides. */
+html.dark .print-paper,
+html.dark .print-paper * {
+  background-color: #ffffff !important;
+  color: #0f172a !important;
+  border-color: #e2e8f0 !important;
+}
+
+/* Custom Print Styles */
+@media print {
+  body {
+    background-color: #ffffff !important;
+    color: #000000 !important;
+  }
+  .no-print {
+    display: none !important;
+  }
+  .app-shell {
+    height: auto !important;
+    min-height: 0 !important;
+    overflow: visible !important;
+  }
+  .print-only {
+    display: block !important;
+  }
+  .print-break-inside-avoid {
+    break-inside: avoid;
+  }
+  @page {
+    size: A4 portrait;
+    margin: 12mm;
+  }
+}
+
+@media screen {
+  .print-only {
+    display: none !important;
+  }
+}
+
+/* Scrollbar customization */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+::-webkit-scrollbar-track {
+  background: var(--oc-canvas);
+}
+
+html.dark ::-webkit-scrollbar-track {
+  background: var(--oc-surface);
+}
+
+::-webkit-scrollbar-thumb {
+  background: var(--oc-border-strong);
+  border-radius: 9999px;
+}
+
+html.dark ::-webkit-scrollbar-thumb {
+  background: var(--oc-border-strong);
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: #94a3b8;
+}
