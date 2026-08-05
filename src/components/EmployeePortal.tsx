@@ -18,7 +18,8 @@ import {
   getPaymentMethodLabel,
   getTodayDateString,
 } from '../lib/formatters';
-import { makeT } from '../lib/i18n';
+import { makeT, validationMessage } from '../lib/i18n';
+import { validateAmount } from '../lib/validation';
 import { useToast } from './Toast';
 
 interface EmployeePortalProps {
@@ -164,11 +165,12 @@ export const EmployeePortal: React.FC<EmployeePortalProps> = ({
       return;
     }
 
-    const numAmount = parseFloat(amount);
-    if (isNaN(numAmount) || numAmount <= 0) {
-      showError(t('alertValidAmount'));
+    const amountResult = validateAmount(amount);
+    if (!amountResult.isValid) {
+      showError(validationMessage(amountResult.code, t) || t('alertValidAmount'));
       return;
     }
+    const numAmount = parseFloat(amount);
 
     onAddEntry({
       employeeId: activeEmployee.id,

@@ -85,16 +85,29 @@ export const ReportsScreen: React.FC<ReportsScreenProps> = ({
     (ex) => ex.date >= range.start && ex.date <= range.end
   );
 
+  // The monthly/settlement tab ALWAYS uses the current calendar month,
+  // independent of the selected dateFilter (per completion plan P1.4)
+  const now = new Date();
+  const monthStart = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-01`;
+  const monthEntries = entries.filter((e) => e.date >= monthStart && e.date <= today);
+  const monthExpenses = expenses.filter((ex) => ex.date >= monthStart && ex.date <= today);
+  const monthlyRevenue = monthEntries.reduce((sum, e) => sum + e.amount, 0);
+  const monthlyCash = monthEntries
+    .filter((e) => e.paymentMethod === 'cash')
+    .reduce((sum, e) => sum + e.amount, 0);
+  const monthlyCard = monthEntries
+    .filter((e) => e.paymentMethod === 'card')
+    .reduce((sum, e) => sum + e.amount, 0);
+  const monthlyTransfer = monthEntries
+    .filter((e) => e.paymentMethod === 'transfer')
+    .reduce((sum, e) => sum + e.amount, 0);
+  const monthlyTotalExpenses = monthExpenses.reduce((sum, ex) => sum + ex.amount, 0);
+  const monthlyNetIncome = monthlyRevenue - monthlyTotalExpenses;
+
   // Financial totals
   const totalRevenue = filteredEntries.reduce((sum, e) => sum + e.amount, 0);
   const totalCash = filteredEntries
     .filter((e) => e.paymentMethod === 'cash')
-    .reduce((sum, e) => sum + e.amount, 0);
-  const totalCard = filteredEntries
-    .filter((e) => e.paymentMethod === 'card')
-    .reduce((sum, e) => sum + e.amount, 0);
-  const totalTransfer = filteredEntries
-    .filter((e) => e.paymentMethod === 'transfer')
     .reduce((sum, e) => sum + e.amount, 0);
 
   const totalExpenses = filteredExpenses.reduce((sum, ex) => sum + ex.amount, 0);
@@ -140,7 +153,8 @@ export const ReportsScreen: React.FC<ReportsScreenProps> = ({
   const handleExportExcel = () => {
     if (activeTab === 'summary' || activeTab === 'monthly') {
       const headers = translations[lang].csvSummaryHeaders;
-      const rows = filteredEntries.map((e) => [
+      const exportEntries = activeTab === 'monthly' ? monthEntries : filteredEntries;
+      const rows = exportEntries.map((e) => [
         e.date,
         e.time,
         e.employeeName,
@@ -149,7 +163,7 @@ export const ReportsScreen: React.FC<ReportsScreenProps> = ({
         e.amount,
         getPaymentMethodLabel(e.paymentMethod, lang),
       ]);
-      exportToCSV(`${t('csvReportName')}_${dateFilter}_${today}`, headers, rows);
+      exportToCSV(`${t('csvReportName')}_${activeTab === 'monthly' ? 'month' : dateFilter}_${today}`, headers, rows);
     } else if (activeTab === 'employees') {
       const headers = translations[lang].csvEmployeesHeaders;
       const rows = employeeReport.map((emp) => [
@@ -177,7 +191,11 @@ export const ReportsScreen: React.FC<ReportsScreenProps> = ({
 
   const handlePrint = () => {
     if (onPrintReport) {
-      onPrintReport(activeTab, filteredEntries, filteredExpenses, range.label);
+      if (activeTab === 'monthly') {
+        onPrintReport(activeTab, monthEntries, monthExpenses, `${range.label} · ${monthStart} → ${today}`);
+      } else {
+        onPrintReport(activeTab, filteredEntries, filteredExpenses, range.label);
+      }
     } else {
       window.print();
     }
@@ -519,6 +537,7 @@ export const ReportsScreen: React.FC<ReportsScreenProps> = ({
                 <p className="text-xs text-slate-300">
                   {t('settlementSubtitle')}
                 </p>
+                <p className="text-xs text-emerald-300 font-bold dir-ltr">{monthStart} → {today}</p>
               </div>
 
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
@@ -526,19 +545,19 @@ export const ReportsScreen: React.FC<ReportsScreenProps> = ({
                   <h5 className="font-bold text-slate-800 border-b pb-2">{t('collectionsByMethod')}</h5>
                   <div className="flex justify-between py-1 border-b">
                     <span>{t('totalCashLabel')}</span>
-                    <strong className="text-emerald-700 dir-ltr">{formatCurrency(totalCash, settings.currency, lang)}</strong>
+                    <strong className="text-emerald-700 dir-ltr">{formatCurrency(monthlyCash, settings.currency, lang)}</strong>
                   </div>
                   <div className="flex justify-between py-1 border-b">
                     <span>{t('totalCardMadaLabel')}</span>
-                    <strong className="text-blue-700 dir-ltr">{formatCurrency(totalCard, settings.currency, lang)}</strong>
+                    <strong className="text-blue-700 dir-ltr">{formatCurrency(monthlyCard, settings.currency, lang)}</strong>
                   </div>
                   <div className="flex justify-between py-1 border-b">
                     <span>{t('totalBankTransferLabel')}</span>
-                    <strong className="text-slate-700 dir-ltr">{formatCurrency(totalTransfer, settings.currency, lang)}</strong>
+                    <strong className="text-slate-700 dir-ltr">{formatCurrency(monthlyTransfer, settings.currency, lang)}</strong>
                   </div>
                   <div className="flex justify-between py-2 font-black text-sm text-slate-900">
                     <span>{t('totalPeriodIncome')}</span>
-                    <strong className="dir-ltr">{formatCurrency(totalRevenue, settings.currency, lang)}</strong>
+                    <strong className="dir-ltr">{formatCurrency(monthlyRevenue, settings.currency, lang)}</strong>
                   </div>
                 </div>
 
@@ -546,15 +565,15 @@ export const ReportsScreen: React.FC<ReportsScreenProps> = ({
                   <h5 className="font-bold text-slate-800 border-b pb-2">{t('finalSettlementTitle')}</h5>
                   <div className="flex justify-between py-1 border-b">
                     <span>{t('totalRevenueColon')}</span>
-                    <strong className="text-slate-800 dir-ltr">{formatCurrency(totalRevenue, settings.currency, lang)}</strong>
+                    <strong className="text-slate-800 dir-ltr">{formatCurrency(monthlyRevenue, settings.currency, lang)}</strong>
                   </div>
                   <div className="flex justify-between py-1 border-b text-rose-800">
                     <span>{t('deductExpenses')}</span>
-                    <strong className="dir-ltr">- {formatCurrency(totalExpenses, settings.currency, lang)}</strong>
+                    <strong className="dir-ltr">- {formatCurrency(monthlyTotalExpenses, settings.currency, lang)}</strong>
                   </div>
                   <div className="flex justify-between py-2 font-black text-sm text-emerald-800 bg-emerald-100 p-2 rounded-lg">
                     <span>{t('netProfitSettlement')}</span>
-                    <strong className="dir-ltr">{formatCurrency(netIncome, settings.currency, lang)}</strong>
+                    <strong className="dir-ltr">{formatCurrency(monthlyNetIncome, settings.currency, lang)}</strong>
                   </div>
                 </div>
               </div>

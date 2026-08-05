@@ -8,8 +8,10 @@ import {
 } from 'lucide-react';
 import { Employee, FinancialEntry, OfficeSettings } from '../types';
 import { formatCurrency, getTodayDateString } from '../lib/formatters';
-import { makeT } from '../lib/i18n';
+import { makeT, validationMessage } from '../lib/i18n';
+import { validateName, validateUsername, validatePin } from '../lib/validation';
 import { ConfirmModal } from './ConfirmModal';
+import { useToast } from './Toast';
 
 interface EmployeesManagerProps {
   employees: Employee[];
@@ -42,10 +44,29 @@ export const EmployeesManager: React.FC<EmployeesManagerProps> = ({
 
   const t = makeT(settings.language);
   const lang = settings.language ?? 'ar';
+  const { showError } = useToast();
 
   const handleAddSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    if (!name.trim()) return;
+    const nameResult = validateName(name);
+    if (!nameResult.isValid) {
+      showError(validationMessage(nameResult.code, t));
+      return;
+    }
+    if (username.trim()) {
+      const userResult = validateUsername(username.trim().toLowerCase());
+      if (!userResult.isValid) {
+        showError(validationMessage(userResult.code, t));
+        return;
+      }
+    }
+    if (passwordPin.trim()) {
+      const pinResult = validatePin(passwordPin.trim());
+      if (!pinResult.isValid) {
+        showError(validationMessage(pinResult.code, t));
+        return;
+      }
+    }
 
     onAddEmployee({
       name: name.trim(),
@@ -65,7 +86,26 @@ export const EmployeesManager: React.FC<EmployeesManagerProps> = ({
 
   const handleUpdateSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    if (!editingEmployee || !editingEmployee.name.trim()) return;
+    if (!editingEmployee) return;
+    const nameResult = validateName(editingEmployee.name);
+    if (!nameResult.isValid) {
+      showError(validationMessage(nameResult.code, t));
+      return;
+    }
+    if (editingEmployee.username.trim()) {
+      const userResult = validateUsername(editingEmployee.username.trim().toLowerCase());
+      if (!userResult.isValid) {
+        showError(validationMessage(userResult.code, t));
+        return;
+      }
+    }
+    if (editingEmployee.passwordPin.trim()) {
+      const pinResult = validatePin(editingEmployee.passwordPin.trim());
+      if (!pinResult.isValid) {
+        showError(validationMessage(pinResult.code, t));
+        return;
+      }
+    }
 
     onUpdateEmployee(editingEmployee);
     setEditingEmployee(null);

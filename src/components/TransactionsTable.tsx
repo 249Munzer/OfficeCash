@@ -24,8 +24,10 @@ import {
   getTodayDateString,
   getDateStringFrom,
 } from '../lib/formatters';
-import { makeT, translations } from '../lib/i18n';
+import { makeT, translations, validationMessage } from '../lib/i18n';
+import { validateAmount } from '../lib/validation';
 import { ConfirmModal } from './ConfirmModal';
+import { useToast } from './Toast';
 
 interface TransactionsTableProps {
   entries: FinancialEntry[];
@@ -63,14 +65,14 @@ export const TransactionsTable: React.FC<TransactionsTableProps> = ({
 
   const t = makeT(settings.language);
   const lang = settings.language ?? 'ar';
+  const { showError } = useToast();
   const today = getTodayDateString();
   const dYesterday = new Date();
   dYesterday.setDate(dYesterday.getDate() - 1);
   const yesterday = getDateStringFrom(dYesterday);
 
   // Filtering Logic
-  const filteredEntries = entries.filter((entry) => {
-    // Search query filter
+  const filteredEntries = entries.filter((entry) => {    // Search query filter
     if (searchQuery.trim()) {
       const q = searchQuery.toLowerCase();
       const matchEmp = entry.employeeName.toLowerCase().includes(q);
@@ -409,10 +411,75 @@ export const TransactionsTable: React.FC<TransactionsTableProps> = ({
             </div>
 
             <div className="space-y-3 text-xs">
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block font-bold text-slate-700 mb-1">{t('employeeDoingService')}</label>
+                  <select
+                    value={editingEntry.employeeId}
+                    onChange={(e) => {
+                      const emp = employees.find((x) => x.id === e.target.value);
+                      setEditingEntry({
+                        ...editingEntry,
+                        employeeId: e.target.value,
+                        employeeName: emp?.name || editingEntry.employeeName,
+                      });
+                    }}
+                    className="w-full border rounded-xl p-2.5 font-bold"
+                  >
+                    {employees.map((emp) => (
+                      <option key={emp.id} value={emp.id}>{emp.name}</option>
+                    ))}
+                  </select>
+                </div>
+                <div>
+                  <label className="block font-bold text-slate-700 mb-1">{t('requiredService')}</label>
+                  <select
+                    value={editingEntry.serviceId}
+                    onChange={(e) => {
+                      const srv = services.find((x) => x.id === e.target.value);
+                      setEditingEntry({
+                        ...editingEntry,
+                        serviceId: e.target.value,
+                        serviceName: srv?.name || editingEntry.serviceName,
+                      });
+                    }}
+                    className="w-full border rounded-xl p-2.5 font-bold"
+                  >
+                    {services.map((srv) => (
+                      <option key={srv.id} value={srv.id}>{srv.name}</option>
+                    ))}
+                  </select>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block font-bold text-slate-700 mb-1">{t('dateLabel')}</label>
+                  <input
+                    type="date"
+                    value={editingEntry.date}
+                    onChange={(e) => setEditingEntry({ ...editingEntry, date: e.target.value })}
+                    className="w-full border rounded-xl p-2.5 font-bold dir-ltr"
+                  />
+                </div>
+                <div>
+                  <label className="block font-bold text-slate-700 mb-1">{t('timeLabel')}</label>
+                  <input
+                    type="time"
+                    value={editingEntry.time.slice(0, 5)}
+                    onChange={(e) =>
+                      setEditingEntry({ ...editingEntry, time: e.target.value ? `${e.target.value}:00` : editingEntry.time })
+                    }
+                    className="w-full border rounded-xl p-2.5 font-bold dir-ltr"
+                  />
+                </div>
+              </div>
+
               <div>
                 <label className="block font-bold text-slate-700 mb-1">{t('amount')}</label>
                 <input
                   type="number"
+                  min="0"
                   value={editingEntry.amount}
                   onChange={(e) =>
                     setEditingEntry({ ...editingEntry, amount: parseFloat(e.target.value) || 0 })
@@ -456,6 +523,15 @@ export const TransactionsTable: React.FC<TransactionsTableProps> = ({
               </button>
               <button
                 onClick={() => {
+                  const amountResult = validateAmount(editingEntry.amount);
+                  if (!amountResult.isValid) {
+                    showError(validationMessage(amountResult.code, t));
+                    return;
+                  }
+                  if (!editingEntry.date || !editingEntry.time || !editingEntry.employeeId || !editingEntry.serviceId) {
+                    showError(t('feValidation'));
+                    return;
+                  }
                   onUpdateEntry(editingEntry);
                   setEditingEntry(null);
                 }}

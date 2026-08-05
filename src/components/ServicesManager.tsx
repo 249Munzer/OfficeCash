@@ -9,8 +9,10 @@ import {
 } from 'lucide-react';
 import { Service, FinancialEntry, OfficeSettings } from '../types';
 import { formatCurrency } from '../lib/formatters';
-import { makeT } from '../lib/i18n';
+import { makeT, validationMessage } from '../lib/i18n';
+import { validateName, validateAmount } from '../lib/validation';
 import { ConfirmModal } from './ConfirmModal';
+import { useToast } from './Toast';
 
 interface ServicesManagerProps {
   services: Service[];
@@ -52,11 +54,21 @@ export const ServicesManager: React.FC<ServicesManagerProps> = ({
 
   const t = makeT(settings.language);
   const lang = settings.language ?? 'ar';
+  const { showError } = useToast();
 
   const handleAddSubmit = (e: React.FormEvent) => {
     e.preventDefault();
+    const nameResult = validateName(name);
+    if (!nameResult.isValid) {
+      showError(validationMessage(nameResult.code, t));
+      return;
+    }
+    const priceResult = validateAmount(defaultPrice);
+    if (!priceResult.isValid) {
+      showError(validationMessage(priceResult.code, t));
+      return;
+    }
     const price = parseFloat(defaultPrice);
-    if (!name.trim() || isNaN(price) || price <= 0) return;
 
     onAddService({
       name: name.trim(),
@@ -73,7 +85,19 @@ export const ServicesManager: React.FC<ServicesManagerProps> = ({
 
   const handleUpdateSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    if (!editingService || !editingService.name.trim()) return;
+    if (!editingService) return;
+    const nameResult = validateName(editingService.name);
+    if (!nameResult.isValid) {
+      showError(validationMessage(nameResult.code, t));
+      return;
+    }
+    if (editingService.defaultPrice !== undefined && editingService.defaultPrice > 0) {
+      const priceResult = validateAmount(editingService.defaultPrice);
+      if (!priceResult.isValid) {
+        showError(validationMessage(priceResult.code, t));
+        return;
+      }
+    }
 
     onUpdateService(editingService);
     setEditingService(null);

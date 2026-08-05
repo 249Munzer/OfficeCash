@@ -14,7 +14,8 @@ import {
 } from 'lucide-react';
 import { Employee, Service, PaymentMethod, OfficeSettings } from '../types';
 import { formatCurrency } from '../lib/formatters';
-import { makeT } from '../lib/i18n';
+import { makeT, validationMessage } from '../lib/i18n';
+import { validateAmount } from '../lib/validation';
 import { playSuccessSound } from '../lib/audio';
 import { motion, AnimatePresence } from 'motion/react';
 import { useToast } from './Toast';
@@ -102,12 +103,17 @@ export const FastEntryModal: React.FC<FastEntryModalProps> = ({
 
     const emp = activeEmployees.find((e) => e.id === selectedEmployeeId);
     const srv = activeServices.find((s) => s.id === selectedServiceId);
-    const numAmount = parseFloat(amount);
 
-    if (!emp || !srv || isNaN(numAmount) || numAmount <= 0) {
+    if (!emp || !srv) {
       showError(t('feValidation'));
       return;
     }
+    const amountResult = validateAmount(amount);
+    if (!amountResult.isValid) {
+      showError(validationMessage(amountResult.code, t) || t('feValidation'));
+      return;
+    }
+    const numAmount = parseFloat(amount);
 
     onAddEntry({
       employeeId: emp.id,

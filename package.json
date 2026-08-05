@@ -1,7 +1,10 @@
 {
   "name": "office-cash-desktop",
   "private": true,
-  "version": "1.0.0",
+  "version": "2.0.0",
+  "description": "OfficeCash — نظام إدارة يوميات المكتب وإيرادات الموظفين والمصروفات وإقفال اليوم مع مزامنة شبكة محلية (P2P) لتطبيقات سطح المكتب.",
+  "author": "OfficeCash Team",
+  "license": "MIT",
   "main": "electron/main.js",
   "scripts": {
     "dev": "vite --port=3000 --host=0.0.0.0",

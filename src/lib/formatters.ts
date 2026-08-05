@@ -1,7 +1,10 @@
 import { PaymentMethod } from '../types';
 import { Language } from './i18n';
 
-export function formatCurrency(amount: number, currency: string = 'ر.س', lang: Language = 'ar'): string {
+/** العملة الافتراضية الموحّدة للمكتب الجديد والتنسيقات */
+export const DEFAULT_CURRENCY = 'ر.س';
+
+export function formatCurrency(amount: number, currency: string = DEFAULT_CURRENCY, lang: Language = 'ar'): string {
   const locale = lang === 'en' ? 'en-US' : 'ar-SA';
   const formatted = new Intl.NumberFormat(locale, {
     minimumFractionDigits: 0,

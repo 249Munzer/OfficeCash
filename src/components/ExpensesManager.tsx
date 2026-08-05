@@ -10,7 +10,8 @@ import {
   getCurrentTimeString,
   exportToCSV,
 } from '../lib/formatters';
-import { makeT, translations } from '../lib/i18n';
+import { makeT, translations, validationMessage } from '../lib/i18n';
+import { validateAmount, validateStatement } from '../lib/validation';
 import { ConfirmModal } from './ConfirmModal';
 import { useToast } from './Toast';
 
@@ -51,8 +52,14 @@ export const ExpensesManager: React.FC<ExpensesManagerProps> = ({
     e.preventDefault();
     const numAmount = parseFloat(amount);
     const trimmedStatement = statement.trim();
-    if (!trimmedStatement || isNaN(numAmount) || numAmount <= 0) {
-      showError(t('expenseValidation'));
+    const stmtResult = validateStatement(trimmedStatement);
+    const amountResult = validateAmount(amount);
+    if (!stmtResult.isValid) {
+      showError(validationMessage(stmtResult.code, t) || t('expenseValidation'));
+      return;
+    }
+    if (!amountResult.isValid) {
+      showError(validationMessage(amountResult.code, t) || t('expenseValidation'));
       return;
     }
 
@@ -68,7 +75,7 @@ export const ExpensesManager: React.FC<ExpensesManagerProps> = ({
     setStatement('');
     setAmount('');
     setNotes('');
-    showSuccess(`تم تسجيل مصروف جديد: ${trimmedStatement} بمبلغ ${formatCurrency(numAmount, settings.currency, lang)}`);
+    showSuccess(t('expenseSaved', { statement: trimmedStatement, amount: formatCurrency(numAmount, settings.currency, lang) }));
   };
 
   const totalExpenseAmount = expenses.reduce((sum, e) => sum + e.amount, 0);
@@ -250,7 +257,7 @@ export const ExpensesManager: React.FC<ExpensesManagerProps> = ({
           onConfirm={() => {
             if (deletingExpense) {
               onDeleteExpense(deletingExpense.id);
-              showSuccess(`تم حذف المصروف: ${deletingExpense.statement}`);
+              showSuccess(t('expenseDeleted', { statement: deletingExpense.statement }));
             }
           }}
           onClose={() => setDeletingExpense(null)}

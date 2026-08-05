@@ -12,6 +12,7 @@ import { createSession } from '../lib/auth/session';
 import { generateSyncCode } from '../lib/syncCode';
 import { OfficeRegistrationInput, validateOfficeRegistration } from '../lib/auth/registration';
 import { saveEmployee as saveEmployeeElectron } from '../lib/electron-storage';
+import { DEFAULT_CURRENCY } from '../lib/formatters';
 
 export interface CreateOfficeResult {
   ok: boolean;
@@ -186,7 +187,7 @@ export const AuthProvider: React.FC<AuthProviderOptions & { children: React.Reac
           licenseNumber: data.licenseNumber.trim(),
           adminPasswordPin: adminHash,
           networkSyncCode: generateSyncCode(),
-          currency: 'ر.ق',
+          currency: DEFAULT_CURRENCY,
           phone: '',
           address: '',
           taxNumber: '',

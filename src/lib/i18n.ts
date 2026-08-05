@@ -1,7 +1,11 @@
+import type { ValidationErrorCode } from './validation';
+
 export type Language = 'ar' | 'en';
 export type Theme = 'light' | 'dark';
 
 type Vars = Record<string, string | number>;
+
+export type TFunc = (key: TranslationKey, vars?: Vars) => string;
 
 function interpolate(template: string, vars?: Vars): string {
   if (!vars) return template;
@@ -139,6 +143,8 @@ const ar = {
   confirmDeleteExpenseTitle: 'تأكيد حذف المصروف',
   confirmDeleteExpenseMessage: 'هل أنت تأكد من حذف مصروف "{statement}" نهائياً؟',
   expenseValidation: 'يرجى إدخال بيان المصروف ومبلغ صحيح أكبر من صفر',
+  expenseSaved: 'تم تسجيل مصروف جديد: {statement} بمبلغ {amount}',
+  expenseDeleted: 'تم حذف المصروف: {statement}',
   csvExpenseHeaders: ['التاريخ', 'الوقت', 'التصنيف', 'البيان', 'المبلغ (ر.س)', 'ملاحظات'],
   csvExpenseName: 'مصروفات_المكتب',
 
@@ -204,6 +210,8 @@ const ar = {
   editEntryTooltip: 'تعديل المعاملة',
   deleteEntryTooltip: 'حذف المعاملة',
   editEntryTitle: 'تعديل المعاملة',
+  dateLabel: 'التاريخ',
+  timeLabel: 'الوقت',
   statementDetailLabel: 'البيان / التفاصيل',
   cashOption: 'نقداً (Cash)',
   cardOption: 'شبكة (Mada)',
@@ -389,7 +397,11 @@ const ar = {
   adminPinNotSetPlaceholder: 'لم يتم تعيين رمز مرور بعد',
   syncTokenLabel: 'معرّف مزامنة الشبكة المحلية (P2P Token)',
   syncTokenHint: 'رمز ربط الأجهزة داخل نفس الشبكة المحلية P2P',
+  syncCodeCopied: 'تم نسخ رمز المزامنة',
+  copySyncCodeBtn: 'نسخ رمز المزامنة',
   soundEffectsLabel: 'تفعيل التنبيهات الصوتية عند تسجيل معاملة سريعة',
+  autoLockClosedDaysLabel: 'قفل الإدخال تلقائياً في الأيام المغلقة',
+  autoLockClosedDaysHint: 'عند تعطيل هذا الخيار، يمكن للمدير إضافة معاملات في يوم مغلق.',
   saveSettingsBtn: 'حفظ الإعدادات',
   backupDataTitle: 'النسخ الاحتياطي والبيانات',
   exportBackupBtn: 'تصدير نسخة احتياطية (JSON)',
@@ -560,6 +572,21 @@ const ar = {
   regErrUsernameInvalid: 'اسم المستخدم يجب أن يكون 3-20 حرفاً (أحرف، أرقام، أو _)',
   regErrUsernameTaken: 'اسم المستخدم مستخدم مسبقاً',
   regErrStorage: 'تعذر إنشاء المكتب بسبب خطأ في التخزين. حاول مرة أخرى.',
+
+  // Validation messages (موحّدة عبر النماذج)
+  valErrRequired: 'هذا الحقل مطلوب',
+  valErrTooShort: 'الإدخال قصير جداً',
+  valErrTooLong: 'الإدخال طويل جداً',
+  valErrNaN: 'المبلغ يجب أن يكون رقماً',
+  valErrPositive: 'المبلغ يجب أن يكون أكبر من صفر',
+  valErrTooLarge: 'المبلغ كبير جداً (الحد الأقصى: 1,000,000)',
+  valErrDigitsOnly: 'يجب أن يتكون الرمز السري من أرقام فقط',
+  valErrPinLength: 'الرمز السري يجب أن يكون من 4 إلى 6 أرقام',
+  valErrWeakPin: 'هذا الرمز السري ضعيف جداً، اختر رمزاً أكثر أماناً',
+  valErrUsernameFormat: 'اسم المستخدم يجب أن يكون 3-20 حرفاً (أحرف، أرقام، أو _)',
+  valErrPhone: 'رقم الهاتف غير صحيح',
+  valErrDate: 'التاريخ غير صحيح',
+  valErrFuture: 'التاريخ في المستقبل البعيد',
 };
 
 type Dict = typeof ar;
@@ -693,6 +720,8 @@ const en: Dict = {
   confirmDeleteExpenseTitle: 'Confirm Delete Expense',
   confirmDeleteExpenseMessage: 'Are you sure you want to permanently delete the expense "{statement}"?',
   expenseValidation: 'Please enter an expense statement and a valid amount greater than zero',
+  expenseSaved: 'New expense recorded: {statement} for {amount}',
+  expenseDeleted: 'Expense deleted: {statement}',
   csvExpenseHeaders: ['Date', 'Time', 'Category', 'Statement', 'Amount (SAR)', 'Notes'],
   csvExpenseName: 'Office_Expenses',
 
@@ -758,6 +787,8 @@ const en: Dict = {
   editEntryTooltip: 'Edit entry',
   deleteEntryTooltip: 'Delete entry',
   editEntryTitle: 'Edit Financial Entry',
+  dateLabel: 'Date',
+  timeLabel: 'Time',
   statementDetailLabel: 'Statement / Details',
   cashOption: 'Cash',
   cardOption: 'Card (Mada)',
@@ -943,7 +974,11 @@ const en: Dict = {
   adminPinNotSetPlaceholder: 'No admin PIN set yet',
   syncTokenLabel: 'Local Network Sync Identifier (P2P Token)',
   syncTokenHint: 'Code linking devices on the same P2P local network',
+  syncCodeCopied: 'Sync code copied',
+  copySyncCodeBtn: 'Copy sync code',
   soundEffectsLabel: 'Enable sound alerts when recording a quick entry',
+  autoLockClosedDaysLabel: 'Automatically lock entry on closed days',
+  autoLockClosedDaysHint: 'When disabled, the admin can add transactions on a closed day.',
   saveSettingsBtn: 'Save Settings',
   backupDataTitle: 'Backup & Data',
   exportBackupBtn: 'Export Backup (JSON)',
@@ -1114,6 +1149,21 @@ const en: Dict = {
   regErrUsernameInvalid: 'Username must be 3-20 characters (letters, digits, or _)',
   regErrUsernameTaken: 'Username is already taken',
   regErrStorage: 'Failed to create the office due to a storage error. Please try again.',
+
+  // Validation messages (unified across forms)
+  valErrRequired: 'This field is required',
+  valErrTooShort: 'Input is too short',
+  valErrTooLong: 'Input is too long',
+  valErrNaN: 'Amount must be a number',
+  valErrPositive: 'Amount must be greater than zero',
+  valErrTooLarge: 'Amount is too large (max: 1,000,000)',
+  valErrDigitsOnly: 'PIN must contain digits only',
+  valErrPinLength: 'PIN must be 4 to 6 digits',
+  valErrWeakPin: 'This PIN is too weak, choose a stronger one',
+  valErrUsernameFormat: 'Username must be 3-20 characters (letters, digits, or _)',
+  valErrPhone: 'Invalid phone number',
+  valErrDate: 'Invalid date',
+  valErrFuture: 'Date is too far in the future',
 };
 
 export const translations: Record<Language, Dict> = { ar, en };
@@ -1128,4 +1178,27 @@ export function getTranslation(lang: Language = 'ar', key: TranslationKey, vars?
 
 export function makeT(lang: Language = 'ar') {
   return (key: TranslationKey, vars?: Vars): string => getTranslation(lang, key, vars);
+}
+
+/**
+ * تحويل رمز خطأ التحقق (validation.ts) إلى رسالة مترجمة حسب اللغة
+ * @returns نص الرسالة أو null عند عدم وجود خطأ
+ */
+export function validationMessage(code: ValidationErrorCode | null | undefined, t: TFunc): string | null {
+  if (!code) return null;
+  const map: Record<ValidationErrorCode, TranslationKey> = {
+    required: 'valErrRequired',
+    tooShort: 'valErrTooShort',
+    tooLong: 'valErrTooLong',
+    nan: 'valErrNaN',
+    zeroOrNegative: 'valErrPositive',
+    tooLarge: 'valErrTooLarge',
+    digitsOnly: 'valErrDigitsOnly',
+    weak: 'valErrWeakPin',
+    usernameFormat: 'valErrUsernameFormat',
+    phone: 'valErrPhone',
+    date: 'valErrDate',
+    future: 'valErrFuture',
+  };
+  return t(map[code]);
 }

@@ -14,6 +14,7 @@ import {
   AuthSession,
 } from '../types';
 import { hashPin, isPlainPin } from './crypto';
+import { DEFAULT_CURRENCY } from './formatters';
 
 export interface SyncStatus {
   code: string;
@@ -112,7 +113,7 @@ function getDefaultSettings(): OfficeSettings {
     licenseNumber: '',
     phone: '',
     address: '',
-    currency: 'ر.ق',
+    currency: DEFAULT_CURRENCY,
     taxNumber: '',
     autoLockClosedDays: true,
     soundEffects: true,

@@ -1,29 +1,46 @@
 /**
  * Validation Utilities
  * أدوات التحقق من المدخلات لضمان سلامة البيانات
+ *
+ * كل دالة تحقق تعيد رمز خطأ (code) تُترجمه الواجهة عبر i18n
+ * لضمان رسائل موحّدة بالعربية والإنجليزية (نمط registration.ts).
  */
+
+export type ValidationErrorCode =
+  | 'required'
+  | 'tooShort'
+  | 'tooLong'
+  | 'nan'
+  | 'zeroOrNegative'
+  | 'tooLarge'
+  | 'digitsOnly'
+  | 'weak'
+  | 'usernameFormat'
+  | 'phone'
+  | 'date'
+  | 'future';
 
 export interface ValidationResult {
   isValid: boolean;
-  error?: string;
+  code?: ValidationErrorCode;
 }
 
 /**
- * التحقق من المبلغ (يجب أن يكون رقم موجب)
+ * التحقق من المبلغ (يجب أن يكون رقماً موجباً أكبر من صفر)
  */
 export function validateAmount(amount: number | string): ValidationResult {
   const num = typeof amount === 'string' ? parseFloat(amount) : amount;
 
   if (isNaN(num)) {
-    return { isValid: false, error: 'المبلغ يجب أن يكون رقماً صحيحاً' };
+    return { isValid: false, code: 'nan' };
   }
 
-  if (num < 0) {
-    return { isValid: false, error: 'المبلغ لا يمكن أن يكون سالباً' };
+  if (num <= 0) {
+    return { isValid: false, code: 'zeroOrNegative' };
   }
 
   if (num > 1000000) {
-    return { isValid: false, error: 'المبلغ كبير جداً (الحد الأقصى: 1,000,000)' };
+    return { isValid: false, code: 'tooLarge' };
   }
 
   return { isValid: true };
@@ -34,25 +51,25 @@ export function validateAmount(amount: number | string): ValidationResult {
  */
 export function validatePin(pin: string): ValidationResult {
   if (!pin) {
-    return { isValid: false, error: 'PIN مطلوب' };
+    return { isValid: false, code: 'required' };
   }
 
   if (pin.length < 4) {
-    return { isValid: false, error: 'PIN يجب أن يكون 4 أرقام على الأقل' };
+    return { isValid: false, code: 'tooShort' };
   }
 
   if (pin.length > 6) {
-    return { isValid: false, error: 'PIN يجب أن يكون 6 أرقام على الأكثر' };
+    return { isValid: false, code: 'tooLong' };
   }
 
   if (!/^\d+$/.test(pin)) {
-    return { isValid: false, error: 'PIN يجب أن يحتوي على أرقام فقط' };
+    return { isValid: false, code: 'digitsOnly' };
   }
 
   // منع PINs ضعيفة
   const weakPins = ['1234', '0000', '1111', '2222', '3333', '4444', '5555', '6666', '7777', '8888', '9999'];
   if (weakPins.includes(pin)) {
-    return { isValid: false, error: 'هذا PIN ضعيف جداً، يرجى اختيار PIN أكثر أماناً' };
+    return { isValid: false, code: 'weak' };
   }
 
   return { isValid: true };
@@ -63,15 +80,15 @@ export function validatePin(pin: string): ValidationResult {
  */
 export function validateName(name: string): ValidationResult {
   if (!name || !name.trim()) {
-    return { isValid: false, error: 'الاسم مطلوب' };
+    return { isValid: false, code: 'required' };
   }
 
   if (name.trim().length < 2) {
-    return { isValid: false, error: 'الاسم قصير جداً' };
+    return { isValid: false, code: 'tooShort' };
   }
 
   if (name.length > 50) {
-    return { isValid: false, error: 'الاسم طويل جداً (الحد الأقصى: 50 حرف)' };
+    return { isValid: false, code: 'tooLong' };
   }
 
   return { isValid: true };
@@ -82,19 +99,19 @@ export function validateName(name: string): ValidationResult {
  */
 export function validateUsername(username: string): ValidationResult {
   if (!username || !username.trim()) {
-    return { isValid: false, error: 'اسم المستخدم مطلوب' };
+    return { isValid: false, code: 'required' };
   }
 
   if (username.length < 3) {
-    return { isValid: false, error: 'اسم المستخدم يجب أن يكون 3 أحرف على الأقل' };
+    return { isValid: false, code: 'tooShort' };
   }
 
   if (username.length > 20) {
-    return { isValid: false, error: 'اسم المستخدم طويل جداً (الحد الأقصى: 20 حرف)' };
+    return { isValid: false, code: 'tooLong' };
   }
 
   if (!/^[a-zA-Z0-9_]+$/.test(username)) {
-    return { isValid: false, error: 'اسم المستخدم يجب أن يحتوي على أحرف إنجليزية وأرقام فقط' };
+    return { isValid: false, code: 'usernameFormat' };
   }
 
   return { isValid: true };
@@ -105,11 +122,11 @@ export function validateUsername(username: string): ValidationResult {
  */
 export function validateStatement(statement: string): ValidationResult {
   if (!statement || !statement.trim()) {
-    return { isValid: false, error: 'البيان مطلوب' };
+    return { isValid: false, code: 'required' };
   }
 
   if (statement.length > 200) {
-    return { isValid: false, error: 'البيان طويل جداً (الحد الأقصى: 200 حرف)' };
+    return { isValid: false, code: 'tooLong' };
   }
 
   return { isValid: true };
@@ -126,10 +143,10 @@ export function validatePhone(phone: string): ValidationResult {
   // إزالة المسافات والشرطات
   const cleaned = phone.replace(/[\s-]/g, '');
 
-  // أرقام هاتف سعودية: 05XXXXXXXX أو 5XXXXXXXX أو +9665XXXXXXXX
-  const phoneRegex = /^(\+966|0)?5\d{8}$/;
+  // أرقام هاتف: 05XXXXXXXX أو 5XXXXXXXX أو +9665XXXXXXXX أو أرقام عامة من 9-15 رقماً
+  const phoneRegex = /^(\+?\d{9,15})$/;
   if (!phoneRegex.test(cleaned)) {
-    return { isValid: false, error: 'رقم الهاتف غير صحيح (مثال: 0512345678)' };
+    return { isValid: false, code: 'phone' };
   }
 
   return { isValid: true };
@@ -140,19 +157,19 @@ export function validatePhone(phone: string): ValidationResult {
  */
 export function validateDate(date: string): ValidationResult {
   if (!date) {
-    return { isValid: false, error: 'التاريخ مطلوب' };
+    return { isValid: false, code: 'required' };
   }
 
   const dateObj = new Date(date);
   if (isNaN(dateObj.getTime())) {
-    return { isValid: false, error: 'التاريخ غير صحيح' };
+    return { isValid: false, code: 'date' };
   }
 
   // التاريخ لا يجب أن يكون في المستقبل البعيد
   const maxDate = new Date();
   maxDate.setFullYear(maxDate.getFullYear() + 1);
   if (dateObj > maxDate) {
-    return { isValid: false, error: 'التاريخ في المستقبل البعيد' };
+    return { isValid: false, code: 'future' };
   }
 
   return { isValid: true };
@@ -163,15 +180,15 @@ export function validateDate(date: string): ValidationResult {
  */
 export function validateOfficeName(name: string): ValidationResult {
   if (!name || !name.trim()) {
-    return { isValid: false, error: 'اسم المكتب مطلوب' };
+    return { isValid: false, code: 'required' };
   }
 
   if (name.trim().length < 3) {
-    return { isValid: false, error: 'اسم المكتب قصير جداً' };
+    return { isValid: false, code: 'tooShort' };
   }
 
   if (name.length > 100) {
-    return { isValid: false, error: 'اسم المكتب طويل جداً (الحد الأقصى: 100 حرف)' };
+    return { isValid: false, code: 'tooLong' };
   }
 
   return { isValid: true };
@@ -182,15 +199,15 @@ export function validateOfficeName(name: string): ValidationResult {
  */
 export function validateLicenseNumber(license: string): ValidationResult {
   if (!license || !license.trim()) {
-    return { isValid: false, error: 'رقم الرخصة مطلوب' };
+    return { isValid: false, code: 'required' };
   }
 
   if (license.length < 5) {
-    return { isValid: false, error: 'رقم الرخصة قصير جداً' };
+    return { isValid: false, code: 'tooShort' };
   }
 
   if (license.length > 30) {
-    return { isValid: false, error: 'رقم الرخصة طويل جداً' };
+    return { isValid: false, code: 'tooLong' };
   }
 
   return { isValid: true };
