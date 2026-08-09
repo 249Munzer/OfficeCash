@@ -1,3 +1,9 @@
+/**
+ * صندوق أخطاء تسجيل الدخول — يعرض رسالة خطأ بلون تحذيري، ويُخفى إذا كانت الرسالة فارغة.
+ * @component
+ * @param {Object} props
+ * @param {string|null} props.message - رسالة الخطأ المراد عرضها
+ */
 import React from 'react';
 import { AlertCircle } from 'lucide-react';
 

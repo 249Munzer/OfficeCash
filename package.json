@@ -1,5 +1,6 @@
 {
   "name": "office-cash-desktop",
+  "productName": "OfficeCash",
   "private": true,
   "version": "2.0.0",
   "description": "OfficeCash — نظام إدارة يوميات المكتب وإيرادات الموظفين والمصروفات وإقفال اليوم مع مزامنة شبكة محلية (P2P) لتطبيقات سطح المكتب.",
@@ -12,6 +13,8 @@
     "preview": "vite preview",
     "clean": "rm -rf dist server.js",
     "lint": "tsc --noEmit",
+    "test": "vitest run",
+    "test:watch": "vitest",
     "electron:dev": "concurrently \"cross-env NODE_ENV=development vite\" \"wait-on http://localhost:3000 && electron .\"",
     "electron:build": "npm run build && electron-builder"
   },
@@ -30,7 +33,8 @@
     "appId": "com.officecash.app",
     "productName": "OfficeCash",
     "directories": {
-      "output": "dist-electron"
+      "output": "dist-electron",
+      "buildResources": "installer"
     },
     "files": [
       "dist/**/*",
@@ -38,10 +42,28 @@
     ],
     "win": {
       "target": [
-        "nsis",
-        "portable"
+        "nsis"
       ],
-      "icon": "public/pwa-512.png"
+      "icon": "public/icon.ico"
+    },
+    "nsis": {
+      "oneClick": false,
+      "allowToChangeInstallationDirectory": true,
+      "perMachine": false,
+      "license": "installer/license_ar.txt",
+      "installerLanguages": [
+        "en_US",
+        "ar"
+      ],
+      "include": "installer/installer.nsh",
+      "createDesktopShortcut": true,
+      "createStartMenuShortcut": true,
+      "shortcutName": "OfficeCash",
+      "uninstallDisplayName": "OfficeCash ${version}",
+      "deleteAppDataOnUninstall": false,
+      "installerIcon": "public/icon.ico",
+      "uninstallerIcon": "public/icon.ico",
+      "artifactName": "OfficeCash-Setup-${version}.${ext}"
     },
     "mac": {
       "target": [
@@ -57,20 +79,29 @@
     }
   },
   "devDependencies": {
+    "@testing-library/jest-dom": "^7.0.0",
+    "@testing-library/react": "^16.3.2",
+    "@testing-library/user-event": "^14.6.3",
     "@types/better-sqlite3": "^7.6.13",
     "@types/node": "^22.14.0",
     "@types/react": "^19.2.18",
     "@types/react-dom": "^19.2.4",
     "autoprefixer": "^10.4.21",
+    "canvas": "^3.2.3",
     "concurrently": "^10.0.4",
     "cross-env": "^10.1.0",
     "electron": "^43.2.0",
     "electron-builder": "^26.15.3",
     "esbuild": "^0.25.0",
+    "imagetracerjs": "^1.2.6",
+    "jsdom": "^30.0.1",
+    "potrace": "^2.1.8",
+    "sharp": "^0.35.3",
     "tailwindcss": "^4.1.14",
     "tsx": "^4.21.0",
     "typescript": "~5.8.2",
     "vite": "^6.2.3",
+    "vitest": "^4.1.10",
     "wait-on": "^9.1.0"
   }
 }

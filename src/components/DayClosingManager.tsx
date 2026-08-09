@@ -1,4 +1,19 @@
-﻿import React, { useState } from 'react';
+﻿/**
+ * إغلاق ومطابقة اليوم — يحسب إجماليات الإيرادات والمصروفات وصافي الدخل،
+ * يقارن النقد المادي الفعلي، يحفظ إغلاق اليوم، ويسجل التسويات، ويعرض سجل الأيام المغلقة.
+ * @component
+ * @param {Object} props
+ * @param {FinancialEntry[]} props.entries - سجل المعاملات
+ * @param {Expense[]} props.expenses - سجل المصروفات
+ * @param {DayClosing[]} props.dayClosings - سجل الأيام المغلقة
+ * @param {Employee[]} props.employees - قائمة الموظفين لحساب العمولات
+ * @param {Settlement[]} props.settlements - التسويات المعلقة
+ * @param {OfficeSettings} props.settings - اللغة والعملة
+ * @param {Function} props.onSaveDayClosing - حفظ إغلاق اليوم
+ * @param {Function} props.onAddSettlement - إضافة تسوية
+ * @param {Function} props.onPrintClosingReport - طباعة تقرير الإغلاق (اختياري)
+ */
+import React, { useState } from 'react';
 import {
   Lock,
   CheckCircle2,
@@ -12,6 +27,8 @@ import {
   Expense,
   DayClosing,
   OfficeSettings,
+  Employee,
+  Settlement,
 } from '../types';
 import {
   formatCurrency,
@@ -20,6 +37,7 @@ import {
   getCurrentTimeString,
 } from '../lib/formatters';
 import { makeT } from '../lib/i18n';
+import { buildDayCloseSettlements, commissionTotalForEntries, computeNetIncome } from '../lib/settlement';
 import { ConfirmModal } from './ConfirmModal';
 import { useToast } from './Toast';
 
@@ -27,8 +45,11 @@ interface DayClosingManagerProps {
   entries: FinancialEntry[];
   expenses: Expense[];
   dayClosings: DayClosing[];
+  employees: Employee[];
+  settlements: Settlement[];
   settings: OfficeSettings;
   onSaveDayClosing: (closing: DayClosing) => void;
+  onAddSettlement: (settlement: Settlement) => void;
   onPrintClosingReport?: (closing: DayClosing) => void;
 }
 
@@ -36,8 +57,11 @@ export const DayClosingManager: React.FC<DayClosingManagerProps> = ({
   entries,
   expenses,
   dayClosings,
+  employees,
+  settlements,
   settings,
   onSaveDayClosing,
+  onAddSettlement,
   onPrintClosingReport,
 }) => {
   const today = getTodayDateString();
@@ -61,7 +85,8 @@ export const DayClosingManager: React.FC<DayClosingManagerProps> = ({
     .reduce((sum, e) => sum + e.amount, 0);
 
   const totalExpenseAmount = todayExpenses.reduce((sum, ex) => sum + ex.amount, 0);
-  const netIncome = totalRevenue - totalExpenseAmount;
+  const employeeCommission = commissionTotalForEntries(todayEntries, employees);
+  const netIncome = computeNetIncome(totalRevenue, totalExpenseAmount, employeeCommission);
 
   // Physical Cash Counter Input
   const [physicalCash, setPhysicalCash] = useState<string>(String(totalCash));
@@ -91,6 +116,7 @@ export const DayClosingManager: React.FC<DayClosingManagerProps> = ({
       totalCard,
       totalTransfer,
       totalExpenses: totalExpenseAmount,
+      employeeCommission,
       netIncome,
       entriesCount: todayEntries.length,
       physicalCashDrawer: numPhysicalCash,
@@ -100,7 +126,22 @@ export const DayClosingManager: React.FC<DayClosingManagerProps> = ({
     };
 
     onSaveDayClosing(newClosing);
+
+    // إنشاء تصفيات اليوم تلقائياً لكل موظف مؤهَّل لديه معاملات اليوم
+    // (تُنشأ بحالة pending ولا تُخصم حتى تأكيد الصرف)
+    const autoSettlements = buildDayCloseSettlements({
+      entries: todayEntries,
+      employees,
+      settlements,
+      date: today,
+      now: new Date().toISOString(),
+    });
+    autoSettlements.forEach((s) => onAddSettlement(s));
+
     showSuccess(t('toastClosedSuccess'), 4000);
+    if (autoSettlements.length > 0) {
+      showInfo(t('dayCloseSettlementsToast', { count: autoSettlements.length }));
+    }
   };
 
   return (
@@ -175,6 +216,15 @@ export const DayClosingManager: React.FC<DayClosingManagerProps> = ({
                 {formatCurrency(totalExpenseAmount, settings.currency, lang)}
               </span>
             </div>
+
+            {employeeCommission > 0 && (
+              <div className="bg-orange-50 p-3.5 rounded-xl border border-orange-200">
+                <span className="text-xs text-orange-700 font-bold block">{t('employeeCommission')}</span>
+                <span className="text-base font-black text-orange-800 dir-ltr">
+                  {formatCurrency(employeeCommission, settings.currency, lang)}
+                </span>
+              </div>
+            )}
 
             <div className="bg-blue-100 p-3.5 rounded-xl border border-blue-200">
               <span className="text-xs text-blue-800 font-bold block">{t('netFinalProfit')}</span>

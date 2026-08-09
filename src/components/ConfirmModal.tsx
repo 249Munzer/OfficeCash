@@ -1,4 +1,25 @@
-﻿import React from 'react';
+﻿/**
+ * @license
+ * SPDX-License-Identifier: Apache-2.0
+ */
+
+/**
+ * مودال تأكيد عام — يستخدم للحذف، إغلاق اليوم، استعادة نسخة احتياطية، إلخ.
+ * قابل للتخصيص: عنوان، رسالة، نصوص أزرار، نوع خطر (أحمر) أو عادي، لغة AR/EN.
+ * متحرك بـ Motion (AnimatePresence).
+ * @component
+ * @param {Object} props
+ * @param {boolean} props.isOpen - مفتوح؟
+ * @param {string} props.title - عنوان
+ * @param {string} props.message - نص الرسالة
+ * @param {string} [props.confirmText] - نص زر التأكيد
+ * @param {string} [props.cancelText] - نص زر الإلغاء
+ * @param {boolean} [props.isDanger] - زر أحمر؟
+ * @param {'ar'|'en'} [props.language] - لغة الأزرار الافتراضية
+ * @param {Function} props.onConfirm - رد فعل التأكيد
+ * @param {Function} props.onClose - إغلاق
+ */
+import React from 'react';
 import { Trash2, AlertTriangle, X } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { makeT } from '../lib/i18n';

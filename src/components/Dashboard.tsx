@@ -1,4 +1,19 @@
-﻿import React, { useState } from 'react';
+﻿/**
+ * لوحة التحكم الرئيسية — تعرض ملخصات اليوم: الإيرادات (نقد/شبكة/تحويل)،
+ * المصروفات، عمولات الموظفين، وصافي الدخل، مع تفصيل أداء كل موظف.
+ * تدعم التنقل للشاشات الأخرى، فتح نافذة الإدخال السريع، وحذف معاملة بعد تأكيد.
+ * @component
+ * @param {Object} props
+ * @param {FinancialEntry[]} props.entries - سجل المعاملات
+ * @param {Expense[]} props.expenses - سجل المصروفات
+ * @param {Employee[]} props.employees - قائمة الموظفين لحساب العمولات
+ * @param {OfficeSettings} props.settings - اللغة والعملة
+ * @param {boolean} props.isTodayClosed - هل أُغلق اليوم الحالي
+ * @param {Function} props.onNavigate - التنقل إلى شاشة أخرى
+ * @param {Function} props.onOpenFastEntry - فتح نافذة الإدخال السريع
+ * @param {Function} props.onDeleteEntry - حذف معاملة
+ */
+import React, { useState } from 'react';
 import {
   Receipt,
   Wallet,
@@ -23,6 +38,7 @@ import {
   formatTimeArabic,
 } from '../lib/formatters';
 import { makeT } from '../lib/i18n';
+import { commissionTotalForEntries } from '../lib/settlement';
 import { ConfirmModal } from './ConfirmModal';
 
 interface DashboardProps {
@@ -68,7 +84,8 @@ export const Dashboard: React.FC<DashboardProps> = ({
     .reduce((sum, e) => sum + e.amount, 0);
 
   const totalExpenseAmount = todayExpenses.reduce((sum, ex) => sum + ex.amount, 0);
-  const netIncome = totalRevenue - totalExpenseAmount;
+  const employeeCommission = commissionTotalForEntries(todayEntries, employees);
+  const netIncome = totalRevenue - totalExpenseAmount - employeeCommission;
 
   // Employee breakdown calculation
   const employeeStats = employees
@@ -147,14 +164,14 @@ export const Dashboard: React.FC<DashboardProps> = ({
       {/* Primary Financial Metric Cards (6 Cards Grid as in Design Spec) */}
       <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-4">
         {/* Card 1: Total Today Revenue */}
-        <div className="bg-amber-500 p-4 rounded-2xl border border-amber-600 shadow-md text-slate-950">
-          <p className="text-xs text-slate-950 font-bold mb-1">{t('totalTodayIncome')}</p>
-          <p className="text-2xl font-extrabold text-slate-950 tracking-tight dir-ltr text-right">
+        <div className="bg-white p-4 rounded-2xl border border-slate-100 shadow-sm">
+          <p className="text-xs text-slate-500 mb-1 font-medium">{t('totalTodayIncome')}</p>
+          <p className="text-2xl font-extrabold text-blue-600 tracking-tight dir-ltr text-right">
             {formatCurrency(totalRevenue, settings.currency, lang)}
           </p>
-          <div className="mt-2 text-xs text-slate-950 flex items-center font-bold gap-0.5">
-            <ArrowUpRight className="w-3 h-3 text-slate-950" />
-            <span className="text-slate-950">{t('txCount', { count: todayEntries.length })}</span>
+          <div className="mt-2 text-xs text-slate-400 flex items-center font-bold gap-0.5">
+            <ArrowUpRight className="w-3 h-3 text-slate-400" />
+            <span>{t('txCount', { count: todayEntries.length })}</span>
           </div>
         </div>
 
@@ -213,6 +230,12 @@ export const Dashboard: React.FC<DashboardProps> = ({
           <div className="mt-2 text-xs text-blue-700 font-medium">
             {t('netFormulaHint')}
           </div>
+          {employeeCommission > 0 && (
+            <div className="mt-1 text-xs text-rose-600 font-bold flex items-center gap-1">
+              <span className="dir-ltr">- {formatCurrency(employeeCommission, settings.currency, lang)}</span>
+              <span>{t('commissionDeducted')}</span>
+            </div>
+          )}
         </div>
       </div>
 

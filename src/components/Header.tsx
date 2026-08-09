@@ -1,14 +1,36 @@
-﻿import React, { useState, useEffect } from 'react';
+﻿/**
+ * @license
+ * SPDX-License-Identifier: Apache-2.0
+ */
+
+/**
+ * شريط الرأس العلوي — شعار/اسم المكتب، تنقل تبويبات، حالة اليوم (مفتوح/مغلق)،
+ * إجمالي إيرادات اليوم، عدد المعاملات، زر "معاملة جديدة" (F2)،
+ * بحث عام، زر تبديل لغة/مظهر، زر خروج/تبديل حساب.
+ * @component
+ * @param {Object} props
+ * @param {OfficeSettings} props.settings - اسم المكتب، عملة، لغة، مظهر
+ * @param {ViewMode} props.currentView - التبويب النشط
+ * @param {Function} props.onNavigate - تغيير التبويب
+ * @param {Function} props.onOpenFastEntry - فتح FastEntryModal
+ * @param {number} props.todayRevenue - إيرادات اليوم للعرض
+ * @param {number} props.todayEntriesCount - عدد الحركات اليوم
+ * @param {boolean} props.isTodayClosed - حالة اليوم
+ * @param {string} props.searchQuery - نص البحث
+ * @param {Function} props.onSearchChange - تحديث البحث
+ */
+import React, { useState, useEffect } from 'react';
 import {
-  Building2,
   Clock,
   PlusCircle,
   Search,
   CheckCircle2,
+  Bell,
 } from 'lucide-react';
 import { OfficeSettings, ViewMode } from '../types';
 import { formatCurrency } from '../lib/formatters';
 import { makeT } from '../lib/i18n';
+import { AppLogo } from './AppLogo';
 
 interface HeaderProps {
   settings: OfficeSettings;
@@ -20,6 +42,8 @@ interface HeaderProps {
   isTodayClosed: boolean;
   searchQuery: string;
   onSearchChange: (query: string) => void;
+  notificationCount?: number;
+  onOpenNotifications?: () => void;
 }
 
 export const Header: React.FC<HeaderProps> = ({
@@ -32,6 +56,8 @@ export const Header: React.FC<HeaderProps> = ({
   isTodayClosed,
   searchQuery,
   onSearchChange,
+  notificationCount = 0,
+  onOpenNotifications,
 }) => {
   const [timeStr, setTimeStr] = useState<string>('');
   const t = makeT(settings.language);
@@ -67,6 +93,8 @@ export const Header: React.FC<HeaderProps> = ({
         return t('expenses');
       case 'employees':
         return t('employees');
+      case 'settlements':
+        return t('settlements');
       case 'services':
         return t('services');
       case 'day_closing':
@@ -88,8 +116,8 @@ export const Header: React.FC<HeaderProps> = ({
         <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
           {/* Right Section: Office Branding & Page Title */}
           <div className="flex items-center gap-3">
-            <div className="w-9 h-9 bg-blue-600 rounded-xl flex items-center justify-center text-white font-bold shadow-md shadow-blue-200 shrink-0">
-              <Building2 className="w-5 h-5" />
+            <div className="w-9 h-9 rounded-xl flex items-center justify-center shadow-md shadow-blue-200 shrink-0 overflow-hidden">
+              <AppLogo size={36} className="text-blue-600 dark:text-white" />
             </div>
             <div>
               <div className="flex items-center gap-2">
@@ -153,6 +181,22 @@ export const Header: React.FC<HeaderProps> = ({
                 {t('headerEntriesCount', { count: todayEntriesCount })}
               </span>
             </div>
+
+            {/* Notification Bell */}
+            {onOpenNotifications && (
+              <button
+                onClick={onOpenNotifications}
+                className="relative w-9 h-9 flex items-center justify-center rounded-full bg-slate-50 border border-slate-200/80 text-slate-500 hover:bg-slate-100 hover:text-slate-700 transition-all cursor-pointer"
+                title={t('notifications')}
+              >
+                <Bell className="w-4 h-4" />
+                {notificationCount > 0 && (
+                  <span className="absolute -top-1 -left-1 min-w-4.5 h-4.5 px-1 rounded-full bg-rose-500 text-white text-[10px] font-extrabold flex items-center justify-center ring-2 ring-white">
+                    {notificationCount > 99 ? '99+' : notificationCount}
+                  </span>
+                )}
+              </button>
+            )}
 
             {/* Live Clock */}
             <div className="hidden sm:flex items-center gap-1.5 text-slate-500 text-xs font-mono bg-slate-50 px-3 py-1.5 rounded-full border border-slate-200/80">

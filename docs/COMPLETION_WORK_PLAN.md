@@ -78,33 +78,47 @@
 
 ## المرحلة P2 — الجودة والاختبارات (أسبوع 2-3)
 
-### P2.1 🟢 بناء حزمة اختبارات أساسية
+### P2.1 ✅ بناء حزمة اختبارات أساسية
 - **الأداة:** Vitest + React Testing Library (متوافقة مع Vite 6 مباشرة).
-- **الاختبارات المطلوبة أولاً (المنطق النقي):**
-  - `credentials.ts` — تحقق/ترقية/رفض (plain, sha256$salt$hash, صيغة غريبة).
-  - `registration.ts` — كل رموز الأخطاء الحقلية.
-  - `session.ts` — صلاحية المدير/الموظف + انتهاء + تعارض مكتب.
-  - `formatters.ts` — تواريخ/عملات/CSV.
-  - `syncCode.ts` — الصيغة `P2P-XXXX-XXXX` وعدم التكرار العشوائي.
-- **ثم اختبارات مكوّنات:** `ConfirmModal`، `AdminLoginForm`، `EmployeeLoginForm`، `OfficeRegistrationForm`.
-- **معيار القبول:** `npm test` يعمل ويغطي >= 40 وحدة دالة.
+- **تم التنفيذ:** `vitest.config.ts` (jsdom + setup)، سكربت `npm test`/`test:watch`، و9 ملفات اختبار:
+  - `credentials.ts` — تحقق/ترقية/رفض (plain, sha256$salt$hash, صيغة غريبة) ✅
+  - `registration.ts` — كل رموز الأخطاء الحقلية ✅
+  - `session.ts` — صلاحية المدير/الموظف + انتهاء + تعارض مكتب ✅
+  - `formatters.ts` — تواريخ/عملات/CSV ✅
+  - `syncCode.ts` — الصيغة `P2P-XXXX-XXXX` وعدم التكرار العشوائي ✅
+  - `validation.ts` (كل الدوال)، `i18n.ts` (ترجمة رموز الخطأ + تطابق اللغتين) ✅
+  - `SettingsManager` (قفل تلقائي + نسخ رمز المزامنة + تحقق اسم المكتب) ✅
+  - `ReportsScreen` (تبويب monthly مستقل عن dateFilter + مسار الطباعة) ✅
+- **معيار القبول:** `npm test` أخضر ✅ — **120 اختباراً / 9 ملفات** (يتجاوز >= 40 وحدة دالة).
 
-### P2.2 🟢 تحسين أداء الحزمة
+### P2.2 ✅ تحسين أداء الحزمة
 - **المشكلة:** 587KB JS (تحذير Vite).
-- **المطلوب:** `React.lazy` + `Suspense` لشاشات الإدارة الثقيلة (`ReportsScreen`، `TransactionsTable`...)، وضبط `manualChunks`.
-- **معيار القبول:** حجم الـ JS الرئيسي أقل من 300KB بعد تقسيم الشيفرة.
+- **تم التنفيذ:**
+  - `React.lazy` + `Suspense` لجميع الشاشات الثقيلة في `App.tsx` (`Dashboard`، `ReportsScreen`، `TransactionsTable`، `SettingsManager`، `DayClosingManager`، `EmployeesManager`، `ServicesManager`، `ExpensesManager`، `EmployeePortal`، `AuthModal`، `FastEntryModal`، `PrintableReport`) مع fallback تحميل.
+  - `manualChunks` في `vite.config.ts`: `react-vendor` (react/react-dom/client)، `motion`، `lucide`.
+- **معيار القبول:** حجم الـ JS الرئيسي **163KB** (gzip 47KB) بعد تقسيم الشيفرة — أقل من 300KB ✅، وبلا تحذير chunk.
 
-### P2.3 🟢 عناصر واجهة ناقصة
-- زر إلغاء/تعديل في `FastEntryModal`.
-- عرض "بواسطة:" افتراضياً بـ `closedBy || '—'` في `DayClosingManager:328`.
-- ترقيم صفحات (pagination) أو virtual scroll في `TransactionsTable`.
-- تحقق من تكرار username في `EmployeesManager` (إعادة استخدام فحص `registration.ts`).
-- دعم فئات خدمات قابلة للتخصيص/ترجمة في `ServicesManager`.
+### P2.3 ✅ عناصر واجهة ناقصة
+- **تم التنفيذ:**
+  - زر "تفريغ الحقول" (Reset) إلى جانب زر الإلغاء في `FastEntryModal` يصفّر المبلغ/الموظف/الخدمة/الدفع/البيان ويعيد التركيز للمبلغ. ✅
+  - عرض "بواسطة: —" افتراضياً عند عدم وجود محاسب (`closedBy || '—'`) في سجل `DayClosingManager`. ✅
+  - ترقيم صفحات (Pagination) في `TransactionsTable` (50 معاملة/صفحة) مع عدّاد `عرض x–y من z` وأزرار السابق/التالي وترقيم مضغوط بنقاط `…`، ويعود للصفحة الأولى عند تغيير أي فلتر، والتصدير CSV يبقى لكامل النتائج. ✅
+  - تحقق من تكرار username في `EmployeesManager` عبر `isUsernameTaken` المستخرجة من `registration.ts` (إضافة/تعديل، تجاهل الحالة والمسافات، باستثناء الموظف نفسه عند التعديل). ✅
+  - فئات خدمات قابلة للتخصيص والترجمة في `ServicesManager`: القائمة الافتراضية انتقلت إلى `i18n.ts` (`serviceCategories`) مع ترجمة إنجليزية، والاختيار أصبح حقل إدخال + `datalist` يدعم إدخال قسم مخصص جديد، وتظهر الأقسام المخصصة المستخدمة في الفلترة. ✅
+- **معيار القبول:** `npm run lint` 0 أخطاء ✅ — `npm test` أخضر ✅ — **122 اختباراً / 9 ملفات** — `npm run build` ناجح بلا تحذير chunk. ✅
 
-### P2.4 🟢 توثيق
-- تعبئة `README.md` (تثبيت، استخدام، مطور).
-- `docs/TASK_BOARD.md` تحديث الحالة بعد كل إنجاز (الإنجازات الحالية مكتملة فعلاً).
-- إضافة JSDoc للمكوّنات والدوال الرئيسية.
+### P2.4 ✅ توثيق
+- **تم التنفيذ:**
+  - `README.md` شامل: مميزات، تثبيت/تشغيل، أوامر npm، هيكل المشروع، اختبارات، إعدادات، بناء Electron، مزامنة LAN، أمان، دليل مطور، إضافة ترجمة/ميزة.
+  - `docs/TASK_BOARD.md` محدث: يعكس الحالة الفعلية (P0→P2.3 مكتملة، P2.4 جارٍ، إحصائيات حالية، مراجع).
+  - JSDoc لجميع الملفات الرئيسية:
+    - `App.tsx` — نقطة الدخول + lazy loading + hooks
+    - 9 Hooks في `hooks/` — useAppState, useEntries, useExpenses, useEmployees, useServices, useDayClosings, useNavigation, useP2PSync, (useAuth عبر AuthProvider)
+    - `AuthProvider.tsx` — سياق المصادقة + createOffice + login/logout
+    - 14 مكون رئيسي في `components/` — Dashboard, TransactionsTable, EmployeesManager, ServicesManager, DayClosingManager, ReportsScreen, SettingsManager, EmployeePortal, AuthModal, FastEntryModal, Header, Sidebar, LandingPage, PrintableReport
+    - UI مشتركة — ToastProvider, ErrorBoundary, ConfirmModal
+    - مكتبات `lib/` — i18n, formatters, validation, crypto, electron-storage, auth/credentials, auth/session, auth/registration, syncCode
+- **معيار القبول:** `npm run lint` 0 أخطاء ✅ — `npm test` أخضر (203 اختبار) ✅ — `npm run build` ناجح بلا تحذير chunk ✅
 
 ---
 
@@ -114,7 +128,7 @@
 - إنتاج `icon.ico` (256px+) و`icon.png`/`pwa-512.png` موحّدين، وتحديث `main.js` + `build.win.icon`.
 
 ### P3.2 🟢 إصدار رسمي
-- رفع `version` إلى `2.0.0`، `npm run electron:build`، والتحقق من Installer NSIS + Portable.
+- رفع `version` إلى `2.0.0` ✅، `npm run electron:build` ✅ (يُبنى ويُوقَّع) — التحقق من Installer NSIS (معالج + ترخيص + حماية بيانات).
 
 ### P3.3 🔵 مستقبلاً (اختياري)
 - تشفير قناة المزامنة (مفتاح مشتق من كود المزامنة).
@@ -126,20 +140,21 @@
 ## قائمة التحقق النهائية (قبل الإطلاق)
 
 - [x] `npm run lint` → 0 أخطاء
-- [ ] `npm run build` → نجاح بلا تحذير chunk (حالياً 598KB — بعد P2.2)
-- [ ] `npm test` → أخضر (بعد P2.1)
+- [x] `npm run build` → نجاح بلا تحذير chunk (الرئيسي 163KB بعد P2.2)
+- [x] `npm test` → أخضر (203 اختباراً / 18 ملفاً)
 - [x] لا نصوص مشوّهة (`rg "â€|âœ"` = 0)
 - [x] تبديل الموظف يتطلب PIN
 - [x] مفتاح القفل التلقائي يعمل من الإعدادات
 - [x] `package.json` مكتمل (description/author/license)
 - [x] أول commit نظيف في Git
-- [ ] Installer يعمل ويثبّت ويطلق التطبيق
+- [x] المثبّت يُبنى ويُوقَّع (`OfficeCash-Setup-2.0.0.exe` + `license` AR/EN + إصلاح أخطاء NSIS 6010/6001)
+- [x] الفحص اليدوي للمثبّت على ويندوز ناجح: تثبيت نظيف (6 خطوات + رجوع)، إلغاء افتراضي يُبقي `office_cash.db`، إلغاء كامل يحذفه، إعادة تثبيت بعد الإلغاء، ترقية فوق نسخة سابقة
 
 ---
 
 **التقدير الزمني:** P0 (نصف يوم) → P1 (2-3 أيام) → P2 (3-4 أيام) → P3 (يوم واحد).
 **مؤشر الإنجاز المتوقع بعد كل مرحلة:** P0 → 88% | P1 → 93% | P2 → 97% | P3 → 99%.
 
-> ✅ **حالة التنفيذ:** P0 كاملة (P0.1–P0.4) — P1 كاملة (P1.1–P1.8) — بتاريخ الجلسة الحالية. المرحلة التالية: P2.
+> ✅ **حالة التنفيذ:** P0 → P2.4 كاملة، P3.1 كاملة (أيقونات)، P3.2 كاملة (البناء والتوقيع)، **الفحص اليدوي للمثبّت ناجح** — المشروع جاهز للإطلاق (2026-08-10).
 
 **ملف مقترح للتتبع:** تُحدَّث قوائم التحديد أعلاه بنمط `[x]` بعد إتمام كل بند.

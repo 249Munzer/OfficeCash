@@ -1,8 +1,14 @@
 /**
+ * @license
+ * SPDX-License-Identifier: Apache-2.0
+ */
+
+/**
  * إدارة دورة حياة جلسة المصادقة (Auth Session)
  * - إنشاء الجلسة مع وقت الدخول.
  * - انتهاء الصلاحية محسوب من loginTime + مهلة حسب الدور (متوافق مع الجلسات المخزنة قديماً بلا حقول إضافية).
  * - التحقق الكامل من الصحة: وجود الجلسة + تطابق المكتب + عدم الانتهاء.
+ * @module lib/auth/session
  */
 
 import { AuthSession, OfficeSettings } from '../../types';

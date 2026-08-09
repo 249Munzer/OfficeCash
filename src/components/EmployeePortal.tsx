@@ -1,4 +1,26 @@
-﻿import React, { useState } from 'react';
+﻿/**
+ * @license
+ * SPDX-License-Identifier: Apache-2.0
+ */
+
+/**
+ * بوابة الموظف السريعة — واجهة مبسطة لتسجيل المعاملات باسم الموظف الحالي فقط.
+ * اختيار خدمة، مبلغ (تلقائي من الخدمة)، طريقة دفع، بيان اختياري، حفظ بـ Enter.
+ * يعرض سجل معاملات الموظف اليوم، إجماليات نقد/شبكة، بحث، وتبديل حساب (مدير حر/موظف PIN).
+ * @component
+ * @param {Object} props
+ * @param {Employee|null} props.activeEmployee - الموظف المسجل دخوله
+ * @param {Employee[]} props.employees - للتبديل (مدير)
+ * @param {Service[]} props.services - قائمة الخدمات
+ * @param {FinancialEntry[]} props.entries - سجل المعاملات (مفلتر بالموظف)
+ * @param {OfficeSettings} props.settings - لغة/عملة/قفل
+ * @param {Function} props.onAddEntry - إضافة معاملة
+ * @param {Function} props.onSwitchEmployee - تبديل موظف (مع PIN)
+ * @param {Function} props.onLoginAsAdmin - دخول وضع مدير
+ * @param {Function} props.onLogout - خروج للصفحة الرئيسية
+ * @param {Object} props.syncStatus - حالة المزامنة للعرض
+ */
+import React, { useState, useEffect } from 'react';
 import {
   UserCheck,
   PlusCircle,
@@ -10,17 +32,42 @@ import {
   Users,
   ShieldCheck,
   LogOut,
+  LogIn,
+  Coffee,
+  CalendarCheck2,
+  PiggyBank,
+  CheckCircle2,
+  X,
 } from 'lucide-react';
-import { Employee, Service, FinancialEntry, PaymentMethod, OfficeSettings } from '../types';
+import { Employee, Service, FinancialEntry, PaymentMethod, OfficeSettings, AttendanceRecord, Settlement } from '../types';
 import {
   formatCurrency,
   formatTimeArabic,
   getPaymentMethodLabel,
   getTodayDateString,
 } from '../lib/formatters';
+import {
+  attendanceForDay,
+  clockInFor,
+  startBreak,
+  endBreak,
+  finishDay,
+  workedMinutes,
+  formatWorkedDuration,
+} from '../lib/attendance';
+import {
+  computeCommission,
+  commissionRateForEmployee,
+  isEligibleForDailyCommission,
+  buildDailySettlement,
+  nextVoucherNo,
+  hasPendingDailySettlement,
+  employeeWallet,
+} from '../lib/settlement';
 import { makeT, validationMessage } from '../lib/i18n';
 import { validateAmount } from '../lib/validation';
 import { useToast } from './Toast';
+import { ConfirmModal } from './ConfirmModal';
 
 interface EmployeePortalProps {
   activeEmployee: Employee | null;
@@ -28,6 +75,8 @@ interface EmployeePortalProps {
   services: Service[];
   entries: FinancialEntry[];
   settings: OfficeSettings;
+  attendance: AttendanceRecord[];
+  settlements: Settlement[];
   isTodayClosed: boolean;
   currentRole: 'admin' | 'employee' | null;
   onSelectEmployee: (empId: string) => void;
@@ -42,6 +91,10 @@ interface EmployeePortalProps {
     statement?: string;
     notes?: string;
   }) => void;
+  onAddAttendance: (record: AttendanceRecord) => void;
+  onUpdateAttendance: (record: AttendanceRecord) => void;
+  onAddSettlement: (settlement: Settlement) => void;
+  onUpdateSettlement: (settlement: Settlement) => void;
   onSwitchToAdmin: () => void;
   onLogout?: () => void;
 }
@@ -52,11 +105,17 @@ export const EmployeePortal: React.FC<EmployeePortalProps> = ({
   services,
   entries,
   settings,
+  attendance,
+  settlements,
   isTodayClosed,
   currentRole,
   onSelectEmployee,
   onVerifyEmployeePin,
   onAddEntry,
+  onAddAttendance,
+  onUpdateAttendance,
+  onAddSettlement,
+  onUpdateSettlement,
   onSwitchToAdmin,
   onLogout,
 }) => {
@@ -79,6 +138,25 @@ export const EmployeePortal: React.FC<EmployeePortalProps> = ({
   const [switchPinError, setSwitchPinError] = useState<string | null>(null);
   const [switchSubmitting, setSwitchSubmitting] = useState<boolean>(false);
   const { showSuccess, showError } = useToast();
+
+  // اليوم الموثّق: تسجيل دخول، استراحة، إنهاء الدوام، وتأكيد استلام المستحقات
+  const [confirmFinishDay, setConfirmFinishDay] = useState<boolean>(false);
+  const [pendingSettlement, setPendingSettlement] = useState<Settlement | null>(null);
+  const [nowTick, setNowTick] = useState<number>(Date.now());
+
+  useEffect(() => {
+    const timer = setInterval(() => setNowTick(Date.now()), 30000);
+    return () => clearInterval(timer);
+  }, []);
+
+  const myAttendanceToday = activeEmployee
+    ? attendanceForDay(attendance, activeEmployee.id, today)
+    : null;
+  const showWorkdayBar =
+    !!activeEmployee &&
+    (!!activeEmployee.contract?.requiresAttendance || isEligibleForDailyCommission(activeEmployee));
+  const rate = activeEmployee ? commissionRateForEmployee(activeEmployee) : 0;
+  const eligibleForCommission = !!activeEmployee && isEligibleForDailyCommission(activeEmployee);
 
   // التبديل لأي موظف: المدير يبدّل بحرية، أما الموظف فيجب إدخال الرمز السري للموظف المستهدف
   const handleEmployeeCardClick = (emp: Employee) => {
@@ -132,6 +210,10 @@ export const EmployeePortal: React.FC<EmployeePortalProps> = ({
 
   // Employee stats for today
   const myTodayRevenue = myTodayEntries.reduce((sum, e) => sum + e.amount, 0);
+  const todayEarned = eligibleForCommission ? computeCommission(myTodayEntries, rate) : 0;
+  const wallet = activeEmployee
+    ? employeeWallet(settlements, activeEmployee.id)
+    : { earnedTotal: 0, pendingTotal: 0, confirmedTotal: 0, paidTotal: 0, pendingCount: 0 };
   const myTodayCash = myTodayEntries
     .filter((e) => e.paymentMethod === 'cash')
     .reduce((sum, e) => sum + e.amount, 0);
@@ -143,6 +225,78 @@ export const EmployeePortal: React.FC<EmployeePortalProps> = ({
   const handleSelectService = (srv: Service) => {
     setSelectedServiceId(srv.id);
     setAmount(srv.defaultPrice.toString());
+  };
+
+  // ===== اليوم الموثّق: تسجيل دخول / استراحة / إنهاء الدوام =====
+  const handleClockIn = () => {
+    if (!activeEmployee) {
+      showError(t('alertSelectEmployee'));
+      setShowEmployeeSwitcherModal(true);
+      return;
+    }
+    if (myAttendanceToday) {
+      showError(t('alreadySettledToday'));
+      return;
+    }
+    const rec = clockInFor(activeEmployee.id, today);
+    onAddAttendance(rec);
+    showSuccess(t('clockInDoneToast'));
+  };
+
+  const handleToggleBreak = () => {
+    if (!activeEmployee || !myAttendanceToday) {
+      showError(t('needClockInFirst'));
+      return;
+    }
+    if (myAttendanceToday.status === 'break') {
+      onUpdateAttendance(endBreak(myAttendanceToday));
+    } else if (myAttendanceToday.status === 'working') {
+      onUpdateAttendance(startBreak(myAttendanceToday));
+    }
+  };
+
+  const handleConfirmFinishDay = () => {
+    if (!activeEmployee || !myAttendanceToday) {
+      showError(t('needClockInFirst'));
+      return;
+    }
+    setConfirmFinishDay(false);
+    const finished = finishDay(myAttendanceToday);
+    const exists = attendance.some((r) => r.id === myAttendanceToday.id);
+    if (exists) {
+      onUpdateAttendance(finished);
+    } else {
+      onAddAttendance(finished);
+    }
+    showSuccess(t('dayFinishedToast'));
+
+    if (eligibleForCommission && myTodayRevenue > 0) {
+      if (!hasPendingDailySettlement(settlements, activeEmployee.id, today)) {
+        const newSettlement = buildDailySettlement({
+          employee: activeEmployee,
+          entries: myTodayEntries,
+          date: today,
+          voucherNo: nextVoucherNo(today, settlements),
+          createdAt: new Date().toISOString(),
+        });
+        onAddSettlement(newSettlement);
+        showSuccess(t('settlementCreatedToast', { name: activeEmployee.name }));
+        setPendingSettlement(newSettlement);
+      }
+    } else if (eligibleForCommission && myTodayRevenue === 0) {
+      showError(t('noEntriesTodayCannotSettle'));
+    }
+  };
+
+  const handleConfirmReceipt = () => {
+    if (!pendingSettlement) return;
+    onUpdateSettlement({
+      ...pendingSettlement,
+      status: 'confirmed',
+      employeeConfirmedAt: new Date().toISOString(),
+    });
+    setPendingSettlement(null);
+    showSuccess(t('receiptConfirmedToast'));
   };
 
   const handleSubmitEntry = (e: React.FormEvent) => {
@@ -242,6 +396,151 @@ export const EmployeePortal: React.FC<EmployeePortalProps> = ({
           </div>
         </div>
       </div>
+
+      {/* Workday Bar: attendance + live wallet */}
+      {showWorkdayBar && activeEmployee && (
+        <div className="bg-white rounded-3xl border border-slate-100 shadow-xs p-5">
+          <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+            <div>
+              <div className="flex items-center gap-2 mb-1">
+                <h2 className="text-base font-black text-slate-900">{t('myWorkdayTitle')}</h2>
+                {myAttendanceToday ? (
+                  <span
+                    className={`px-2.5 py-0.5 rounded-full text-[11px] font-bold ${
+                      myAttendanceToday.status === 'done'
+                        ? 'bg-slate-100 text-slate-500'
+                        : myAttendanceToday.status === 'break'
+                          ? 'bg-amber-50 text-amber-600'
+                          : 'bg-emerald-50 text-emerald-600'
+                    }`}
+                  >
+                    {myAttendanceToday.status === 'done'
+                      ? t('statusDayDone')
+                      : myAttendanceToday.status === 'break'
+                        ? t('statusOnBreak')
+                        : t('statusWorking')}
+                  </span>
+                ) : (
+                  <span className="px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-slate-50 text-slate-400">
+                    {t('statusNotStarted')}
+                  </span>
+                )}
+              </div>
+              <div className="flex flex-wrap items-center gap-x-5 gap-y-1 text-xs text-slate-500">
+                <span className="flex items-center gap-1.5">
+                  <Clock className="w-3.5 h-3.5 text-slate-400" />
+                  {myAttendanceToday ? (
+                    <>
+                      {t('clockedInAt')} {formatTimeArabic(myAttendanceToday.clockIn)}
+                    </>
+                  ) : (
+                    t('notClockedInYet')
+                  )}
+                </span>
+                {myAttendanceToday && (
+                  <span className="flex items-center gap-1.5 font-bold text-slate-700">
+                    <CalendarCheck2 className="w-3.5 h-3.5 text-blue-500" />
+                    {t('workedHoursLabel')}: {formatWorkedDuration(workedMinutes(myAttendanceToday, new Date(nowTick)))}
+                  </span>
+                )}
+                {eligibleForCommission && (
+                  <>
+                    <span className="flex items-center gap-1.5">
+                      <PiggyBank className="w-3.5 h-3.5 text-blue-500" />
+                      {t('myCommissionRate')}: <b className="text-blue-700">{(rate * 100).toFixed(0)}%</b>
+                    </span>
+                    <span className="flex items-center gap-1.5">
+                      <Banknote className="w-3.5 h-3.5 text-emerald-500" />
+                      {t('myTodayEarned')}:
+                      <b className="text-emerald-600 dir-ltr">{formatCurrency(todayEarned, settings.currency, lang)}</b>
+                    </span>
+                  </>
+                )}
+              </div>
+            </div>
+
+            <div className="flex items-center gap-2 shrink-0">
+              {!myAttendanceToday && (
+                <button
+                  onClick={handleClockIn}
+                  className="px-4 py-2.5 bg-emerald-600 text-white rounded-xl text-xs font-bold hover:bg-emerald-700 transition-all flex items-center gap-2 cursor-pointer shadow-xs"
+                >
+                  <LogIn className="w-4 h-4" />
+                  {t('clockInBtn')}
+                </button>
+              )}
+              {myAttendanceToday && myAttendanceToday.status !== 'done' && (
+                <>
+                  <button
+                    onClick={handleToggleBreak}
+                    className={`px-4 py-2.5 rounded-xl text-xs font-bold transition-all flex items-center gap-2 cursor-pointer shadow-xs ${
+                      myAttendanceToday.status === 'break'
+                        ? 'bg-emerald-600 text-white hover:bg-emerald-700'
+                        : 'bg-amber-50 text-amber-700 border border-amber-200 hover:bg-amber-100'
+                    }`}
+                  >
+                    <Coffee className="w-4 h-4" />
+                    {myAttendanceToday.status === 'break' ? t('endBreakBtn') : t('startBreakBtn')}
+                  </button>
+                  <button
+                    onClick={() => setConfirmFinishDay(true)}
+                    disabled={isTodayClosed}
+                    className="px-4 py-2.5 bg-blue-700 text-white rounded-xl text-xs font-bold hover:bg-blue-800 transition-all flex items-center gap-2 cursor-pointer shadow-xs disabled:opacity-40 disabled:cursor-not-allowed"
+                  >
+                    <CalendarCheck2 className="w-4 h-4" />
+                    {t('finishDayBtn')}
+                  </button>
+                </>
+              )}
+              {myAttendanceToday && myAttendanceToday.status === 'done' && (
+                <span className="px-4 py-2.5 rounded-xl text-xs font-bold bg-slate-50 text-slate-400 flex items-center gap-2">
+                  <CheckCircle2 className="w-4 h-4" />
+                  {t('dayFinishedBadge')}
+                </span>
+              )}
+            </div>
+          </div>
+
+          {/* Live Wallet Summary */}
+          {eligibleForCommission && (
+            <div className="mt-4 pt-4 border-t border-dashed border-slate-200">
+              <div className="bg-slate-50 rounded-2xl p-3 grid grid-cols-1 sm:grid-cols-3 gap-3">
+                <div className="bg-white border border-slate-100 shadow-xs rounded-xl p-3 flex items-center justify-between gap-2">
+                  <div className="space-y-0.5 min-w-0">
+                    <span className="text-[11px] text-slate-400 font-medium block">{t('myTodayEarned')}</span>
+                    <div className="text-lg font-extrabold text-blue-700 dir-ltr">{formatCurrency(todayEarned, settings.currency, lang)}</div>
+                  </div>
+                  <div className="w-9 h-9 rounded-lg bg-blue-50 text-blue-600 flex items-center justify-center shrink-0">
+                    <PiggyBank className="w-4.5 h-4.5" />
+                  </div>
+                </div>
+                <div className="bg-white border border-slate-100 shadow-xs rounded-xl p-3 flex items-center justify-between gap-2">
+                  <div className="space-y-0.5 min-w-0">
+                    <span className="text-[11px] text-slate-400 font-medium block">{t('walletPending')}</span>
+                    <div className="text-lg font-extrabold text-amber-600 dir-ltr">{formatCurrency(wallet.pendingTotal, settings.currency, lang)}</div>
+                    {wallet.pendingCount > 0 && (
+                      <span className="text-[11px] text-amber-500 font-bold">{t('waitingConfirmationBadge', { count: wallet.pendingCount })}</span>
+                    )}
+                  </div>
+                  <div className="w-9 h-9 rounded-lg bg-amber-50 text-amber-600 flex items-center justify-center shrink-0">
+                    <Clock className="w-4.5 h-4.5" />
+                  </div>
+                </div>
+                <div className="bg-white border border-slate-100 shadow-xs rounded-xl p-3 flex items-center justify-between gap-2">
+                  <div className="space-y-0.5 min-w-0">
+                    <span className="text-[11px] text-slate-400 font-medium block">{t('walletConfirmedPaid')}</span>
+                    <div className="text-lg font-extrabold text-emerald-600 dir-ltr">{formatCurrency(wallet.confirmedTotal + wallet.paidTotal, settings.currency, lang)}</div>
+                    <span className="text-[11px] text-slate-400 font-medium">{t('totalEarnedEver', { total: formatCurrency(wallet.earnedTotal, settings.currency, lang) })}</span>
+                  </div>
+                  <div className="w-9 h-9 rounded-lg bg-emerald-50 text-emerald-600 flex items-center justify-center shrink-0">
+                    <CheckCircle2 className="w-4.5 h-4.5" />
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
+        </div>
+      )}
 
       {/* Employee Personal Stats Cards */}
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
@@ -562,7 +861,12 @@ export const EmployeePortal: React.FC<EmployeePortalProps> = ({
 
             <div className="pt-3 flex items-center justify-between border-t border-slate-100 gap-2">
               <button
-                onClick={onSwitchToAdmin}
+                onClick={() => {
+                  setShowEmployeeSwitcherModal(false);
+                  setPendingSwitchEmp(null);
+                  setSwitchPin('');
+                  onSwitchToAdmin();
+                }}
                 className="text-xs font-bold text-blue-600 hover:text-blue-700 py-2 px-3 rounded-xl hover:bg-blue-50 transition-colors flex items-center gap-1.5 cursor-pointer"
               >
                 <ShieldCheck className="w-4 h-4 text-blue-600" />
@@ -589,6 +893,61 @@ export const EmployeePortal: React.FC<EmployeePortalProps> = ({
                 )}
               </div>
             </div>
+          </div>
+        </div>
+      )}
+      {/* Finish Day Confirmation */}
+      {confirmFinishDay && (
+        <ConfirmModal
+          isOpen={confirmFinishDay}
+          title={t('confirmFinishDayTitle')}
+          message={t('confirmFinishDayMessage')}
+          confirmText={t('finishDayBtn')}
+          onConfirm={handleConfirmFinishDay}
+          onClose={() => setConfirmFinishDay(false)}
+          isDanger={false}
+        />
+      )}
+
+      {/* Receipt Confirmation Modal: المستحقات قيد الانتظار حتى يؤكد الموظف الاستلام */}
+      {pendingSettlement && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 backdrop-blur-xs p-4">
+          <div className="bg-white w-full max-w-md rounded-3xl shadow-2xl border border-slate-100 p-6 space-y-5">
+            <div className="text-center space-y-1">
+              <div className="w-14 h-14 mx-auto bg-blue-50 text-blue-600 rounded-2xl flex items-center justify-center">
+                <PiggyBank className="w-7 h-7" />
+              </div>
+              <h3 className="text-lg font-bold text-slate-900">{t('confirmReceiptTitle')}</h3>
+              <p className="text-xs text-slate-500">{t('confirmReceiptSubtitle')}</p>
+            </div>
+
+            <div className="bg-gradient-to-r from-blue-700 to-blue-800 rounded-2xl p-5 text-white text-center shadow-lg relative overflow-hidden">
+              <div className="absolute -left-8 -top-8 w-32 h-32 bg-white/10 rounded-full blur-2xl pointer-events-none"></div>
+              <span className="text-xs text-blue-100/80 font-medium block">{t('receiptVoucher')}</span>
+              <span className="text-lg font-black block mt-0.5 dir-ltr">{pendingSettlement.voucherNo}</span>
+              <div className="mt-3 text-3xl font-black dir-ltr">{formatCurrency(pendingSettlement.amount, settings.currency, lang)}</div>
+              <span className="text-[11px] text-blue-100/80 mt-1 block">
+                {t('commissionFor', { name: activeEmployee?.name || '' })} — {(rate * 100).toFixed(0)}%
+              </span>
+            </div>
+
+            <div className="flex items-center gap-2">
+              <button
+                onClick={handleConfirmReceipt}
+                className="flex-1 py-3 bg-emerald-600 hover:bg-emerald-500 text-white rounded-xl text-sm font-extrabold transition-all flex items-center justify-center gap-2 cursor-pointer shadow-xs"
+              >
+                <CheckCircle2 className="w-5 h-5" />
+                {t('confirmReceiptBtn')}
+              </button>
+              <button
+                onClick={() => setPendingSettlement(null)}
+                className="px-4 py-3 bg-slate-100 hover:bg-slate-200 text-slate-600 rounded-xl text-sm font-bold transition-all flex items-center gap-2 cursor-pointer"
+              >
+                <X className="w-4 h-4" />
+                {t('confirmLaterBtn')}
+              </button>
+            </div>
+            <p className="text-[11px] text-slate-400 text-center leading-relaxed">{t('receiptConfirmNote')}</p>
           </div>
         </div>
       )}

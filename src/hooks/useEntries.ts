@@ -2,6 +2,18 @@ import { useCallback } from 'react';
 import { FinancialEntry, PaymentMethod } from '../types';
 import { getTodayDateString, getCurrentTimeString } from '../lib/formatters';
 
+/**
+ * Hook عمليات الحركات المالية (CRUD + بث P2P).
+ * يغلف دوال `addEntry`/`updateEntry`/`deleteEntry` من `useAppState` مع إنشاء `id`/`date`/`time`/`createdAt`
+ * ويُشغّل `broadcastP2PChange` بعد كل تعديل لمزامنة أجهزة LAN.
+ * @param _entries - مصفوفة الحركات (غير مستخدمة مباشرة، للاعتمادية)
+ * @param _setEntries - setter للحالة (غير مستخدم مباشرة)
+ * @param addEntry - دالة إضافة من useAppState
+ * @param updateEntry - دالة تعديل من useAppState
+ * @param deleteEntry - دالة حذف من useAppState
+ * @param broadcastP2PChange - دالة بث التغيير لأجهزة الشبكة
+ * @returns {Object} دوال `handleAddEntry`، `handleUpdateEntry`، `handleDeleteEntry`
+ */
 export function useEntries(
   _entries: FinancialEntry[],
   _setEntries: React.Dispatch<React.SetStateAction<FinancialEntry[]>>,

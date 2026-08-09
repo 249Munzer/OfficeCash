@@ -1,0 +1,34 @@
+﻿End User License Agreement — OfficeCash
+Version 2.0.0
+
+By installing or using this software you agree to the following terms:
+
+1) Ownership & Rights
+The OfficeCash software and its office-cash management components are owned by the "OfficeCash Team" and all rights are reserved. You are granted a personal, non-transferable license to use the software on your device.
+
+2) License & Use
+- This license permits you to install and use the software for your internal business management.
+- You may not copy, redistribute, resell, or modify the software without prior written permission.
+- You may freely copy, transfer, and move your data (office database) between your own devices.
+
+3) Data Privacy
+- All office data (transactions, expenses, employees, settings) is stored locally on your device and is never sent to any external server.
+- Synchronization between devices happens over your local network (LAN); you are responsible for your network security.
+- You are solely responsible for backing up and protecting your data.
+
+4) No Warranty
+The software is provided "as is" without any express or implied warranty, including but not limited to merchantability or fitness for a particular purpose.
+
+5) Limitation of Liability
+To the maximum extent permitted by law, the "OfficeCash Team" shall not be liable for any direct, indirect, incidental, or consequential damages arising from the use of or inability to use the software, including loss of data or profits.
+
+6) Updates & Upgrades
+Periodic updates may be released; the team reserves the right to amend these terms by updating the attached document.
+
+7) Termination
+You may uninstall the software at any time from Windows Control Panel. If you choose "Delete data" during uninstall, the office database is permanently deleted and cannot be recovered, so keeping a backup is strongly recommended.
+
+8) Governing Law
+These terms are governed by and interpreted in accordance with the laws of the country in which the software is used.
+
+By installing the software and continuing the wizard you acknowledge that you have read, understood, and agreed to these terms.

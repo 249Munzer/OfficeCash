@@ -1,20 +1,37 @@
 /**
- * منطق تسجيل مكتب جديد: الأنواع + التحقق الكامل
- * التحقق يتم قبل أي مسح للبيانات، ويعيد رموز أخطاء تترجمها الواجهة عبر i18n.
+ * @license
+ * SPDX-License-Identifier: Apache-2.0
  */
 
-export interface EmployeeSetupInput {
-  name: string;
-  username: string;
-  pin: string;
+/**
+ * منطق تسجيل مكتب جديد: الأنواع + التحقق الكامل
+ * التحقق يتم قبل أي مسح للبيانات، ويعيد رموز أخطاء تترجمها الواجهة عبر i18n.
+ *
+ * ملاحظة: لم يعد التسجيل يتضمن حسابات موظفين أولية — يُعبَّأ كامل بيانات المكتب
+ * (اسم، ترخيص، هاتف، عنوان، عملة، رقم ضريبي) مع رمز المدير وسؤالَي أمان كحد أدنى
+ * من أصل 10، واشتراط الموافقة على السياسة والخصوصية وشروط الخدمة.
+ * @module lib/auth/registration
+ */
+
+import { validatePhone } from '../validation';
+import { validateSecurityQuestionSet } from './securityQuestions';
+
+export interface SecurityQuestionSetupInput {
+  questionId: string;
+  answer: string;
 }
 
 export interface OfficeRegistrationInput {
   officeName: string;
   licenseNumber: string;
+  phone: string;
+  address: string;
+  currency: string;
+  taxNumber: string;
   adminPin: string;
   adminPinConfirm: string;
-  employees: EmployeeSetupInput[];
+  securityQuestions: SecurityQuestionSetupInput[];
+  acceptedTerms: boolean;
 }
 
 export type RegistrationErrorCode =
@@ -64,6 +81,15 @@ export function validateOfficeRegistration(data: OfficeRegistrationInput): Regis
     errors.licenseNumber = 'format';
   }
 
+  const phoneResult = validatePhone(data.phone);
+  if (!phoneResult.isValid) {
+    errors.phone = 'format';
+  }
+
+  if (!data.currency.trim()) {
+    errors.currency = 'required';
+  }
+
   if (!data.adminPin) {
     errors.adminPin = 'required';
   } else if (!isValidSetupPin(data.adminPin)) {
@@ -73,29 +99,18 @@ export function validateOfficeRegistration(data: OfficeRegistrationInput): Regis
     errors.adminPinConfirm = 'mismatch';
   }
 
-  const seen = new Set<string>();
-  data.employees.forEach((emp, index) => {
-    const prefix = `employee.${index}`;
-    if (!emp.name.trim()) {
-      errors[`${prefix}.name`] = 'required';
+  const questionErrors = validateSecurityQuestionSet(data.securityQuestions);
+  if (questionErrors.count === 'min') {
+    errors.securityQuestions = 'required';
+  } else {
+    for (const [key, code] of Object.entries(questionErrors)) {
+      errors[`securityQuestions.${key}`] = code as RegistrationErrorCode;
     }
-    const username = emp.username.trim();
-    if (!username) {
-      errors[`${prefix}.username`] = 'required';
-    } else if (!/^[a-zA-Z0-9_]{3,20}$/.test(username)) {
-      errors[`${prefix}.username`] = 'invalid';
-    } else if (seen.has(username)) {
-      errors[`${prefix}.username`] = 'taken';
-    }
-    if (username) {
-      seen.add(username);
-    }
-    if (!emp.pin) {
-      errors[`${prefix}.pin`] = 'required';
-    } else if (!isValidSetupPin(emp.pin)) {
-      errors[`${prefix}.pin`] = 'weak';
-    }
-  });
+  }
+
+  if (!data.acceptedTerms) {
+    errors.acceptedTerms = 'required';
+  }
 
   return { ok: Object.keys(errors).length === 0, errors };
 }

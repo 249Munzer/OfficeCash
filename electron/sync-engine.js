@@ -253,13 +253,17 @@ class SyncEngine {
         this.db.prepare('DELETE FROM employees').run();
         this.db.prepare('DELETE FROM services').run();
         this.db.prepare('DELETE FROM day_closings').run();
+        this.db.prepare('DELETE FROM attendance').run();
+        this.db.prepare('DELETE FROM settlements').run();
       }
       const tables = [
         { name: 'financial_entries', rows: snap.entries, fields: ['id', 'date', 'time', 'employeeId', 'employeeName', 'serviceId', 'serviceName', 'amount', 'paymentMethod', 'statement', 'notes', 'createdAt'] },
         { name: 'expenses', rows: snap.expenses, fields: ['id', 'date', 'time', 'category', 'amount', 'statement', 'recipient', 'notes', 'createdAt'] },
-        { name: 'employees', rows: snap.employees, fields: ['id', 'name', 'username', 'jobTitle', 'phone', 'passwordPin', 'color', 'isActive', 'notes', 'createdAt'] },
+        { name: 'employees', rows: snap.employees, fields: ['id', 'name', 'username', 'jobTitle', 'phone', 'passwordPin', 'color', 'isActive', 'notes', 'createdAt', 'contract'] },
         { name: 'services', rows: snap.services, fields: ['id', 'name', 'category', 'defaultPrice', 'isActive', 'notes', 'createdAt'] },
         { name: 'day_closings', rows: snap.dayClosings, fields: ['id', 'date', 'closingTimestamp', 'totalRevenue', 'totalCash', 'totalCard', 'totalTransfer', 'totalExpenses', 'netIncome', 'entriesCount', 'physicalCashDrawer', 'cashDifference', 'closedBy', 'notes'] },
+        { name: 'attendance', rows: snap.attendance, fields: ['id', 'employeeId', 'date', 'clockIn', 'breaks', 'status', 'clockOut', 'createdAt'] },
+        { name: 'settlements', rows: snap.settlements, fields: ['id', 'employeeId', 'employeeName', 'type', 'periodStart', 'periodEnd', 'grossRevenue', 'amount', 'commissionRate', 'status', 'voucherNo', 'createdAt', 'adminConfirmedAt', 'employeeConfirmedAt', 'createdBy'] },
       ];
       for (const table of tables) {
         if (!Array.isArray(table.rows)) continue;
@@ -269,6 +273,10 @@ class SyncEngine {
         for (const row of table.rows) {
           if (table.name === 'employees' || table.name === 'services') {
             stmt.run(this.normalizeRow(table.name, row));
+            continue;
+          }
+          if (table.name === 'attendance') {
+            stmt.run(this.normalizeAttendance(row));
             continue;
           }
           stmt.run(this.pickFields(row, table.fields));
@@ -281,9 +289,41 @@ class SyncEngine {
   }
 
   normalizeRow(table, row) {
-    if (table === 'employees') return { ...this.pickFields(row, ['id', 'name', 'username', 'jobTitle', 'phone', 'passwordPin', 'color', 'isActive', 'notes', 'createdAt']), isActive: row.isActive ? 1 : 0 };
-    if (table === 'services') return { ...this.pickFields(row, ['id', 'name', 'category', 'defaultPrice', 'isActive', 'notes', 'createdAt']), isActive: row.isActive ? 1 : 0 };
+    if (table === 'employees') {
+      const e = this.pickFields(row, ['id', 'name', 'username', 'jobTitle', 'phone', 'passwordPin', 'color', 'isActive', 'notes', 'createdAt', 'contract']);
+      return {
+        id: e.id,
+        name: e.name,
+        username: e.username ?? null,
+        jobTitle: e.jobTitle ?? '',
+        phone: e.phone ?? '',
+        passwordPin: e.passwordPin ?? null,
+        color: e.color ?? '#2563eb',
+        isActive: e.isActive ? 1 : 0,
+        notes: e.notes ?? null,
+        createdAt: e.createdAt ?? null,
+        contract: e.contract ?? null,
+      };
+    }
+    if (table === 'services') {
+      const s = this.pickFields(row, ['id', 'name', 'category', 'defaultPrice', 'isActive', 'notes', 'createdAt']);
+      return {
+        id: s.id,
+        name: s.name,
+        category: s.category ?? '',
+        defaultPrice: typeof s.defaultPrice === 'number' ? s.defaultPrice : parseFloat(s.defaultPrice) || 0,
+        isActive: s.isActive ? 1 : 0,
+        notes: s.notes ?? null,
+        createdAt: s.createdAt ?? null,
+      };
+    }
     return row;
+  }
+
+  normalizeAttendance(row) {
+    const out = this.pickFields(row, ['id', 'employeeId', 'date', 'clockIn', 'breaks', 'status', 'clockOut', 'createdAt']);
+    if (out.breaks && typeof out.breaks !== 'string') out.breaks = JSON.stringify(out.breaks);
+    return out;
   }
 
   pickFields(row, fields) {

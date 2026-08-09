@@ -308,6 +308,31 @@ html.dark button.bg-amber-500 {
   color: #020617 !important;
 }
 
+/* Danger Zone Card - solid red in both themes with white inner text.
+   Declared after the global button rules so hover stays red-toned instead of
+   picking up the generic blue-tinted hover from dark mode. */
+html.dark .oc-danger-zone {
+  background-color: #dc2626 !important;
+  border-color: #991b1b !important;
+}
+
+html.dark .oc-danger-zone h3,
+html.dark .oc-danger-zone button {
+  color: #ffffff !important;
+}
+
+html.dark .oc-danger-zone button:hover {
+  background-color: rgba(255, 255, 255, 0.25) !important;
+  color: #ffffff !important;
+  border-color: rgba(255, 255, 255, 0.4) !important;
+}
+
+html.dark .oc-danger-zone button.bg-red-950\/50:hover {
+  background-color: rgba(69, 10, 10, 0.7) !important;
+  color: #ffffff !important;
+  border-color: rgba(255, 255, 255, 0.35) !important;
+}
+
 /* Inputs, Selects, Textareas */
 html.dark input,
 html.dark select,
@@ -356,8 +381,9 @@ html.dark .hover\:bg-slate-200:hover {
   color: #ffffff !important;
 }
 
-/* Printable Report Sheet - must stay paper white in dark mode.
-   Declared last so it wins the specificity ties against the dark overrides. */
+/* Printable Report Sheet - must stay paper white in dark mode and render with
+   the exact same visual hierarchy as light mode (gray panels, table headers,
+   borders, muted text). Declared last so it wins against the dark overrides. */
 html.dark .print-paper,
 html.dark .print-paper * {
   background-color: #ffffff !important;
@@ -365,8 +391,53 @@ html.dark .print-paper * {
   border-color: #e2e8f0 !important;
 }
 
+html.dark .print-paper .bg-slate-50 { background-color: #f8fafc !important; }
+html.dark .print-paper .bg-slate-100,
+html.dark .print-paper tfoot { background-color: #f1f5f9 !important; }
+html.dark .print-paper .bg-slate-200,
+html.dark .print-paper thead tr { background-color: #e2e8f0 !important; }
+
+html.dark .print-paper .text-slate-400 { color: #94a3b8 !important; }
+html.dark .print-paper .text-slate-500 { color: #64748b !important; }
+html.dark .print-paper .text-slate-600 { color: #475569 !important; }
+html.dark .print-paper .text-slate-800 { color: #1e293b !important; }
+html.dark .print-paper .text-slate-900,
+html.dark .print-paper .text-slate-950 { color: #0f172a !important; }
+
+html.dark .print-paper .border-slate-300 { border-color: #cbd5e1 !important; }
+html.dark .print-paper .border-slate-900 { border-color: #0f172a !important; }
+html.dark .print-paper tbody tr { border-color: #e2e8f0 !important; }
+html.dark .print-paper thead tr { color: #0f172a !important; }
+
+/* Neutralize the generic dark-mode blue hover tint on report table rows */
+html.dark .print-paper tbody tr:hover {
+  background-color: #ffffff !important;
+  color: #0f172a !important;
+}
+
+/* Print preview shell: the backdrop behind the A4 sheet must look like a
+   light desk in dark mode too (official paper form). Declared last so it
+   wins against the slate/white dark overrides. */
+html.dark .print-overlay {
+  background-color: #e2e8f0 !important;
+  color: #1e293b !important;
+}
+
 /* Custom Print Styles */
 @media print {
+  /* The A4 page itself must be plain white in dark mode too (official form).
+     Higher specificity than the html.dark body/#root rules so the whole
+     printed paper is white regardless of the active theme. */
+  html.dark,
+  html.dark body,
+  html.dark main,
+  html.dark #root,
+  html.dark .min-h-screen,
+  html.dark div#root > div,
+  html.dark div#root > div > div {
+    background-color: #ffffff !important;
+    color: #000000 !important;
+  }
   body {
     background-color: #ffffff !important;
     color: #000000 !important;

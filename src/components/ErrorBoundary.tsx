@@ -1,7 +1,13 @@
 /**
+ * @license
+ * SPDX-License-Identifier: Apache-2.0
+ */
+
+/**
  * Error Boundary Component
  * يلتقط الأخطاء في المكونات الفرعية ويعرض رسائل خطأ صديقة للمستخدم
  * بدلاً من انهيار التطبيق بالكامل
+ * @module components/ErrorBoundary
  */
 
 import { Component, ErrorInfo, ReactNode } from 'react';

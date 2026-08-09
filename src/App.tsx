@@ -3,7 +3,14 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import { useState, useEffect, useMemo, useCallback } from 'react';
+/**
+ * OfficeCash — نقطة الدخول الرئيسية للتطبيق.
+ * يرتب providers (Auth, Toast, ErrorBoundary)، يحمل الشاشات بـ React.lazy لتقسيم الكود،
+ * ويدير الحالة العامة عبر 9 custom hooks مفصولة.
+ * @module App
+ */
+
+import { useState, useEffect, useMemo, useCallback, lazy, Suspense } from 'react';
 import {
   Employee,
   FinancialEntry,
@@ -11,10 +18,11 @@ import {
   DayClosing,
   OfficeSettings,
   ViewMode,
+  Settlement,
 } from './types';
 import { getTodayDateString } from './lib/formatters';
 import { makeT } from './lib/i18n';
-import { clearAllData, saveAuthSession } from './lib/electron-storage';
+import { clearAllData, deleteOffice, saveAuthSession } from './lib/electron-storage';
 import type { OfficeRegistrationInput } from './lib/auth/registration';
 import { validateSession } from './lib/auth/session';
 import { AuthProvider, useAuthContext } from './auth/AuthProvider';
@@ -22,21 +30,25 @@ import { AuthProvider, useAuthContext } from './auth/AuthProvider';
 // Components
 import { Header } from './components/Header';
 import { Sidebar } from './components/Sidebar';
-import { Dashboard } from './components/Dashboard';
-import { FastEntryModal } from './components/FastEntryModal';
-import { TransactionsTable } from './components/TransactionsTable';
-import { ExpensesManager } from './components/ExpensesManager';
-import { EmployeesManager } from './components/EmployeesManager';
-import { ServicesManager } from './components/ServicesManager';
-import { DayClosingManager } from './components/DayClosingManager';
-import { ReportsScreen } from './components/ReportsScreen';
-import { SettingsManager } from './components/SettingsManager';
-import { PrintableReport } from './components/PrintableReport';
-import { EmployeePortal } from './components/EmployeePortal';
-import { AuthModal } from './components/AuthModal';
 import { LandingPage, OfficeCreationResult } from './components/LandingPage';
 import { ErrorBoundary } from './components/ErrorBoundary';
 import { ToastProvider, ToastContainer, useToast } from './components/Toast';
+import { SplashScreen } from './components/SplashScreen';
+
+// Lazy-loaded screens (code-split so the main bundle stays small)
+const Dashboard = lazy(() => import('./components/Dashboard').then((m) => ({ default: m.Dashboard })));
+const FastEntryModal = lazy(() => import('./components/FastEntryModal').then((m) => ({ default: m.FastEntryModal })));
+const TransactionsTable = lazy(() => import('./components/TransactionsTable').then((m) => ({ default: m.TransactionsTable })));
+const ExpensesManager = lazy(() => import('./components/ExpensesManager').then((m) => ({ default: m.ExpensesManager })));
+const EmployeesManager = lazy(() => import('./components/EmployeesManager').then((m) => ({ default: m.EmployeesManager })));
+const ServicesManager = lazy(() => import('./components/ServicesManager').then((m) => ({ default: m.ServicesManager })));
+const DayClosingManager = lazy(() => import('./components/DayClosingManager').then((m) => ({ default: m.DayClosingManager })));
+const ReportsScreen = lazy(() => import('./components/ReportsScreen').then((m) => ({ default: m.ReportsScreen })));
+const SettingsManager = lazy(() => import('./components/SettingsManager').then((m) => ({ default: m.SettingsManager })));
+const EmployeePortal = lazy(() => import('./components/EmployeePortal').then((m) => ({ default: m.EmployeePortal })));
+const SettlementsScreen = lazy(() => import('./components/SettlementsScreen').then((m) => ({ default: m.SettlementsScreen })));
+const PrintableReport = lazy(() => import('./components/PrintableReport').then((m) => ({ default: m.PrintableReport })));
+const AuthModal = lazy(() => import('./components/AuthModal').then((m) => ({ default: m.AuthModal })));
 
 // Custom Hooks
 import { useAppState } from './hooks/useAppState';
@@ -77,6 +89,8 @@ function AppContent() {
     entries,
     expenses,
     dayClosings,
+    attendance,
+    settlements,
     isLoading,
     updateSettings,
     setEntries,
@@ -95,8 +109,11 @@ function AppContent() {
     addService,
     updateService,
     deleteService,
+    addAttendance,
+    updateAttendance,
+    addSettlement,
+    updateSettlement,
     saveDayClosing,
-    resetToDemoData,
     reloadAll,
   } = useAppState();
 
@@ -111,6 +128,8 @@ function AppContent() {
     loginAsEmployee,
     loginAsAdmin,
     verifyEmployeePin,
+    verifySecurityAnswers,
+    resetAdminPin,
     logout: handleLogout,
     createOffice,
   } = useAuthContext();
@@ -144,6 +163,27 @@ function AppContent() {
     searchQuery,
     setSearchQuery,
   } = useNavigation();
+
+  // تبويب الافتتاح لنافذة الدخول الموحّدة: عند طلب التبديل للإدارة من بوابة الموظف
+  // نفتح مباشرة على تبويب المدير (نافذة واحدة فقط دون تركيب نوافذ فوق بعضها)
+  const [authModalInitialTab, setAuthModalInitialTab] = useState<'employee' | 'admin'>('employee');
+  const openAuthModal = useCallback(
+    (tab: 'employee' | 'admin') => {
+      setAuthModalInitialTab(tab);
+      setIsAuthModalOpen(true);
+    },
+    [setIsAuthModalOpen]
+  );
+
+  // استعادة الشاشة الصحيحة عند إعادة فتح التطبيق:
+  // الموظف يعود دائماً إلى بوابة الموظف (وليست لوحة تحكم الإدارة التي لا قائمة جانبية
+  // فيها وبالتالي لا يمكن الوصول لزر الخروج منها)
+  useEffect(() => {
+    if (isLoading || isAuthLoading) return;
+    if (currentUserRole === 'employee' && currentView !== 'employee_portal') {
+      setCurrentView('employee_portal');
+    }
+  }, [isLoading, isAuthLoading, currentUserRole, currentView, setCurrentView]);
 
   // Entries CRUD
   const { handleAddEntry, handleUpdateEntry, handleDeleteEntry } = useEntries(
@@ -193,16 +233,42 @@ function AppContent() {
   );
 
   const t = makeT(settings?.language);
-  const activeEmployee = employees.find((emp: Employee) => emp.id === activeEmployeeId) || employees[0] || null;
+  // لا تراجع صامت لأول موظف عند غياب اختيار صريح — إن لم يُختر موظف تُعرض
+  // حالة «الرجاء اختيار موظف» بدلاً من إظهار بيانات موظف آخر فوق الشاشة.
+  const activeEmployee = employees.find((emp: Employee) => emp.id === activeEmployeeId) || null;
 
   // Wrapper functions to provide required parameters from App.tsx
   const handleLoginAsEmployeeWrapper = useCallback(async (employeeId: string, pin: string): Promise<boolean> => {
-    return loginAsEmployee(employeeId, pin, employees, settings || undefined);
-  }, [loginAsEmployee, employees, settings]);
+    const ok = await loginAsEmployee(employeeId, pin, employees, settings || undefined);
+    if (ok) setCurrentView('employee_portal');
+    return ok;
+  }, [loginAsEmployee, employees, settings, setCurrentView]);
 
   const handleLoginAsAdminWrapper = useCallback(async (adminPin: string): Promise<boolean> => {
-    return loginAsAdmin(adminPin, settings || undefined);
-  }, [loginAsAdmin, settings]);
+    const ok = await loginAsAdmin(adminPin, settings || undefined);
+    if (ok) setCurrentView('dashboard');
+    return ok;
+  }, [loginAsAdmin, settings, setCurrentView]);
+
+  // التحقق من أسئلة الأمان قبل تعيين رمز مدير جديد (يُستخدم من مودال الاسترداد)
+  const handleVerifySecurityAnswers = useCallback(
+    async (answers: Array<{ questionId: string; answer: string }>) => {
+      return verifySecurityAnswers(answers, settings || undefined);
+    },
+    [verifySecurityAnswers, settings]
+  );
+
+  const handleResetAdminPin = useCallback(
+    async (answers: Array<{ questionId: string; answer: string }>, newPin: string) => {
+      const result = await resetAdminPin(answers, newPin, settings || undefined);
+      // مزامنة رمز المدير الجديد مع حالة التطبيق في الذاكرة حتى يعمل فوراً عند الدخول
+      if (result.ok && result.settings) {
+        await updateSettings(result.settings);
+      }
+      return result;
+    },
+    [resetAdminPin, settings, updateSettings]
+  );
 
   // التحقق من الرمز السري لموظف (يُستخدم قبل تبديل الحساب من بوابة الموظف)
   const handleVerifyEmployeePin = useCallback(async (employeeId: string, pin: string): Promise<boolean> => {
@@ -211,9 +277,9 @@ function AppContent() {
 
   const handleNavigateWithGuard = (view: ViewMode) => {
     // If employee is logged in and trying to enter restricted Admin pages, require Admin auth
-    const adminOnlyViews: ViewMode[] = ['dashboard', 'employees', 'expenses', 'day_closing', 'settings', 'reports'];
+    const adminOnlyViews: ViewMode[] = ['dashboard', 'employees', 'settlements', 'expenses', 'day_closing', 'settings', 'reports'];
     if (currentUserRole === 'employee' && adminOnlyViews.includes(view)) {
-      setIsAuthModalOpen(true);
+      openAuthModal('admin');
       return;
     }
     setCurrentView(view);
@@ -274,6 +340,28 @@ function AppContent() {
   const todayExpenses = useMemo(() => expenses.filter((expense: Expense) => expense.date === today), [expenses, today]);
   const todayRevenue = useMemo(() => todayEntries.reduce((sum: number, entry: FinancialEntry) => sum + entry.amount, 0), [todayEntries]);
 
+  // إشعارات المستحقات: للمكتب عدد التصفيات المعلّقة (قيد الانتظار/بانتظار الصرف)، وللموظف ما ينتظر تأكيده هو
+  const pendingSettlementsCount = useMemo(
+    () => settlements.filter((s: Settlement) => s.status === 'pending').length,
+    [settlements]
+  );
+  const myPendingSettlementsCount = useMemo(
+    () =>
+      activeEmployee
+        ? settlements.filter((s: Settlement) => s.employeeId === activeEmployee.id && s.status === 'pending').length
+        : 0,
+    [settlements, activeEmployee]
+  );
+  const notificationCount = currentUserRole === 'employee' ? myPendingSettlementsCount : pendingSettlementsCount;
+
+  const handleOpenNotifications = useCallback(() => {
+    if (currentUserRole === 'employee') {
+      setCurrentView('employee_portal');
+    } else {
+      setCurrentView('settlements');
+    }
+  }, [currentUserRole, setCurrentView]);
+
   // Global F2 shortcut for instant Fast Entry Modal
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
@@ -293,14 +381,7 @@ function AppContent() {
 
   if (!authSession || !settings) {
     if (isLoading) {
-      return (
-        <div className="min-h-dvh bg-slate-50 flex items-center justify-center">
-          <div className="text-center space-y-4">
-            <div className="w-16 h-16 border-4 border-blue-600 border-t-transparent rounded-full animate-spin mx-auto"></div>
-            <p className="text-sm text-slate-600">{t('appLoading')}</p>
-          </div>
-        </div>
-      );
+      return <SplashScreen language={settings?.language} />;
     }
     return (
       <LandingPage
@@ -310,6 +391,8 @@ function AppContent() {
         onLoginAsEmployee={handleLoginAsEmployeeWrapper}
         onCreateNewOffice={handleCreateNewOfficeWrapper}
         onJoinLAN={handleJoinLAN}
+        onVerifyAnswers={handleVerifySecurityAnswers}
+        onResetPin={handleResetAdminPin}
         syncStatus={syncStatus}
         onRefreshSyncStatus={refreshSyncStatus}
       />
@@ -329,6 +412,8 @@ function AppContent() {
         isTodayClosed={isTodayClosed}
         searchQuery={searchQuery}
         onSearchChange={setSearchQuery}
+        notificationCount={notificationCount}
+        onOpenNotifications={handleOpenNotifications}
       />
 
       {/* Main Layout (Sidebar + Content Stage) */}
@@ -340,12 +425,21 @@ function AppContent() {
             onNavigate={handleNavigateWithGuard}
             todayEntriesCount={todayEntries.length}
             todayExpensesCount={todayExpenses.length}
+            settlementsPendingCount={pendingSettlementsCount}
             language={settings.language}
           />
         )}
 
         {/* View Stage Content */}
         <main className="flex-1 min-h-0 p-4 sm:p-6 overflow-y-auto">
+          <Suspense
+            fallback={
+              <div className="min-h-40 flex flex-col items-center justify-center gap-3 text-slate-400">
+                <div className="w-8 h-8 border-4 border-blue-600 border-t-transparent rounded-full animate-spin"></div>
+                <p className="text-xs font-bold">{t('appLoading')}</p>
+              </div>
+            }
+          >
           {currentView === 'dashboard' && (
             <Dashboard
               entries={entries}
@@ -432,8 +526,11 @@ function AppContent() {
               entries={entries}
               expenses={expenses}
               dayClosings={dayClosings}
+              employees={employees}
+              settlements={settlements}
               settings={settings}
               onSaveDayClosing={handleSaveDayClosing}
+              onAddSettlement={addSettlement}
               onPrintClosingReport={(closing: DayClosing) =>
                 setPrintableData({
                   title: t('dayClosingReportTitle', { date: closing.date }),
@@ -468,14 +565,20 @@ function AppContent() {
               services={services}
               entries={entries}
               settings={settings}
+              attendance={attendance}
+              settlements={settlements}
               isTodayClosed={isTodayClosed}
               currentRole={currentUserRole}
               onSelectEmployee={selectActiveEmployee}
               onVerifyEmployeePin={handleVerifyEmployeePin}
               onAddEntry={handleAddEntry}
+              onAddAttendance={addAttendance}
+              onUpdateAttendance={updateAttendance}
+              onAddSettlement={addSettlement}
+              onUpdateSettlement={updateSettlement}
               onSwitchToAdmin={() => {
                 if (currentUserRole === 'employee') {
-                  setIsAuthModalOpen(true);
+                  openAuthModal('admin');
                 } else {
                   setCurrentView('dashboard');
                 }
@@ -484,53 +587,77 @@ function AppContent() {
             />
           )}
 
+          {currentView === 'settlements' && (
+            <SettlementsScreen
+              settlements={settlements}
+              employees={employees}
+              settings={settings}
+              onUpdateSettlement={updateSettlement}
+            />
+          )}
+
           {currentView === 'settings' && (
             <SettingsManager
               settings={settings}
               onUpdateSettings={handleUpdateSettings}
-              onResetDemoData={resetToDemoData}
+              onLogout={handleLogout}
               onClearData={async () => {
                 await clearAllData();
                 await reloadAll();
               }}
+              onDeleteOffice={async () => {
+                await deleteOffice();
+                await reloadAll();
+              }}
             />
           )}
+          </Suspense>
         </main>
       </div>
 
       {/* Fast Entry Modal Overlay */}
-      <FastEntryModal
-        isOpen={isFastEntryOpen}
-        onClose={() => setIsFastEntryOpen(false)}
-        employees={employees}
-        services={services}
-        settings={settings}
-        isTodayClosed={isTodayClosed}
-        onAddEntry={handleAddEntry}
-      />
+      <Suspense fallback={null}>
+        <FastEntryModal
+          isOpen={isFastEntryOpen}
+          onClose={() => setIsFastEntryOpen(false)}
+          employees={employees}
+          services={services}
+          settings={settings}
+          isTodayClosed={isTodayClosed}
+          onAddEntry={handleAddEntry}
+        />
+      </Suspense>
 
       {/* P2P Local Network & Auth Modal Overlay */}
-      <AuthModal
-        isOpen={isAuthModalOpen}
-        employees={employees}
-        settings={settings}
-        activeEmployee={activeEmployee}
-        onLoginAsEmployee={handleLoginAsEmployeeWrapper}
-        onLoginAsAdmin={handleLoginAsAdminWrapper}
-        onClose={() => setIsAuthModalOpen(false)}
-        syncStatus={syncStatus}
-      />
+      <Suspense fallback={null}>
+        <AuthModal
+          isOpen={isAuthModalOpen}
+          employees={employees}
+          settings={settings}
+          activeEmployee={activeEmployee}
+          onLoginAsEmployee={handleLoginAsEmployeeWrapper}
+          onLoginAsAdmin={handleLoginAsAdminWrapper}
+          onVerifyAnswers={handleVerifySecurityAnswers}
+          onResetPin={handleResetAdminPin}
+          onClose={() => setIsAuthModalOpen(false)}
+          syncStatus={syncStatus}
+          initialTab={authModalInitialTab}
+        />
+      </Suspense>
 
       {/* Printable Report Overlay */}
-      {printableData && (
-        <PrintableReport
-          settings={settings}
-          title={printableData.title}
-          entries={printableData.entries}
-          expenses={printableData.expenses}
-          onClosePrint={() => setPrintableData(null)}
-        />
-      )}
+      <Suspense fallback={null}>
+        {printableData && (
+          <PrintableReport
+            settings={settings}
+            title={printableData.title}
+            entries={printableData.entries}
+            expenses={printableData.expenses}
+            onClosePrint={() => setPrintableData(null)}
+              employees={employees}
+          />
+        )}
+      </Suspense>
     </div>
   );
 }

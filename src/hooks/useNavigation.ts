@@ -1,6 +1,12 @@
 import { useState, useCallback } from 'react';
 import { ViewMode } from '../types';
 
+/**
+ * Hook حالة التنقل والواجهات العائمة (modals).
+ * يدير: الشاشة الحالية (`currentView`)، حالة `FastEntryModal`، `AuthModal`، استعلام البحث.
+ * يوفر دوال فتح/إغلاق للمودالز ودالة تنقل مع حارس صلاحيات (مبسط، التحقق الفعلي في App.tsx).
+ * @returns {Object} حالة التنقل + دوال التحكم
+ */
 export function useNavigation() {
   const [currentView, setCurrentView] = useState<ViewMode>('dashboard');
   const [isFastEntryOpen, setIsFastEntryOpen] = useState<boolean>(false);

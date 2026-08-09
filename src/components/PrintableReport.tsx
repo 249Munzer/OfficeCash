@@ -1,7 +1,27 @@
-﻿import React from 'react';
+﻿/**
+ * @license
+ * SPDX-License-Identifier: Apache-2.0
+ */
+
+/**
+ * مكون معاينة تقرير قابل للطباعة — يعرض رأس المكتب، ملخص المبالغ (نقد/شبكة/صافي)،
+ * جدول تفصيلي للحركات (وقت، خدمة، بيان، مبلغ، طريقة دفع)،
+ * جدول المصروفات، توقيع محاسب، اعتماد مدير.
+ * زر "طباعة التقرير" يفتح نافذة طباعة المتصفح، زر "إغلاق" يغلق المودال.
+ * @component
+ * @param {Object} props
+ * @param {OfficeSettings} props.settings - بيانات المكتب للعرض
+ * @param {string} props.title - عنوان التقرير
+ * @param {FinancialEntry[]} props.entries - الحركات
+ * @param {Expense[]} [props.expenses] - المصروفات (اختياري)
+ * @param {string} [props.reportDate] - تاريخ التقرير (افتراضي: اليوم)
+ * @param {Function} props.onClosePrint - إغلاق المعاينة
+ */
+import React from 'react';
 import {
   FinancialEntry,
   Expense,
+  Employee,
   OfficeSettings,
 } from '../types';
 import {
@@ -10,6 +30,7 @@ import {
   getTodayDateString,
   getPaymentMethodLabel,
 } from '../lib/formatters';
+import { commissionTotalForEntries, computeNetIncome } from '../lib/settlement';
 import { makeT } from '../lib/i18n';
 
 interface PrintableReportProps {
@@ -17,6 +38,7 @@ interface PrintableReportProps {
   title: string;
   entries: FinancialEntry[];
   expenses?: Expense[];
+  employees: Employee[];
   reportDate?: string;
   onClosePrint: () => void;
 }
@@ -26,6 +48,7 @@ export const PrintableReport: React.FC<PrintableReportProps> = ({
   title,
   entries,
   expenses = [],
+  employees = [],
   reportDate = getTodayDateString(),
   onClosePrint,
 }) => {
@@ -41,13 +64,14 @@ export const PrintableReport: React.FC<PrintableReportProps> = ({
     .reduce((sum, e) => sum + e.amount, 0);
 
   const totalExpenseAmount = expenses.reduce((sum, ex) => sum + ex.amount, 0);
-  const netIncome = totalRevenue - totalExpenseAmount;
+  const employeeCommission = commissionTotalForEntries(entries, employees);
+  const netIncome = computeNetIncome(totalRevenue, totalExpenseAmount, employeeCommission);
 
   const t = makeT(settings.language);
   const lang = settings.language ?? 'ar';
 
   return (
-    <div className="fixed inset-0 z-50 bg-slate-900/80 backdrop-blur-xs flex flex-col items-center justify-start p-4 overflow-y-auto">
+    <div className="print-overlay fixed inset-0 z-50 bg-slate-200 print:bg-white flex flex-col items-center justify-start p-4 overflow-y-auto">
       {/* Top Floating Control Bar (Hidden on Print) */}
       <div className="no-print bg-white w-full max-w-4xl p-4 rounded-xl shadow-lg border mb-4 flex items-center justify-between">
         <div className="text-xs font-bold text-slate-800">
@@ -114,8 +138,14 @@ export const PrintableReport: React.FC<PrintableReportProps> = ({
             <span className="block text-slate-500 font-bold mb-1">{t('cardAndTransfer')}</span>
             <strong className="text-sm dir-ltr">{formatCurrency(totalCard + totalTransfer, settings.currency, lang)}</strong>
           </div>
-          <div className="p-3 bg-slate-50 border rounded-lg">
-            <span className="block text-slate-500 font-bold mb-1">{t('netPeriod')}</span>
+          {employeeCommission > 0 && (
+            <div className="p-3 bg-orange-50 border border-orange-200 rounded-lg">
+              <span className="block text-orange-700 font-bold mb-1">{t('employeeCommission')}</span>
+              <strong className="text-sm dir-ltr">{formatCurrency(employeeCommission, settings.currency, lang)}</strong>
+            </div>
+          )}
+          <div className="p-3 bg-blue-50 border border-blue-200 rounded-lg">
+            <span className="block text-blue-800 font-bold mb-1">{t('netPeriod')}</span>
             <strong className="text-sm dir-ltr">{formatCurrency(netIncome, settings.currency, lang)}</strong>
           </div>
         </div>

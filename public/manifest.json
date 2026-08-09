@@ -3,19 +3,19 @@
   "name": "OfficeCash - نظام إدارة الإيرادات اليومية",
   "icons": [
     {
-      "src": "pwa-192.png",
+      "src": "icon-192.png",
       "type": "image/png",
       "sizes": "192x192"
     },
     {
-      "src": "pwa-512.png",
+      "src": "icon.png",
       "type": "image/png",
       "sizes": "512x512"
     }
   ],
   "start_url": "/",
-  "background_color": "#ffffff",
-  "theme_color": "#2563eb",
+  "background_color": "#1d4078",
+  "theme_color": "#1d4078",
   "display": "standalone",
   "orientation": "any",
   "dir": "rtl",

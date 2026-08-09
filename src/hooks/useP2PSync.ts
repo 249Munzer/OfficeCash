@@ -1,6 +1,14 @@
 import { useEffect, useCallback, useState } from 'react';
 import type { SyncStatus } from '../lib/electron-storage';
 
+/**
+ * Hook مزامنة LAN (P2P) — يعمل في Electron (WebSocket + UDP) والمتصفح (BroadcastChannel).
+ * في Electron: يستمع لأحداث `onP2PSync` و `onSyncStatus` من `electronAPI`، يستدعي `onSync()` عند استلام تحديث.
+ * في المتصفح: يستخدم `BroadcastChannel` لإعلام التبويبات الأخرى بالتغييرات (نفس الجهاز).
+ * يوفر `broadcastP2PChange()` لإرسال إشارة تحديث يدوياً، و `refreshSyncStatus()` لطلب الحالة الحالية.
+ * @param onSync - دالة رد فعل تُستدعى عند استلام تحديث من جهاز آخر (عادة `refreshAllData`)
+ * @returns {Object} `broadcastP2PChange`، `syncStatus`، `refreshSyncStatus`
+ */
 export function useP2PSync(onSync: () => void) {
   const [syncStatus, setSyncStatus] = useState<SyncStatus | null>(null);
 

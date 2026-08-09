@@ -1,6 +1,12 @@
 /**
+ * @license
+ * SPDX-License-Identifier: Apache-2.0
+ */
+
+/**
  * Toast Provider - مزود نظام الإشعارات العام
  * يوفر context للإشعارات يمكن الوصول إليه من أي مكون في التطبيق
+ * @module components/Toast/ToastProvider
  */
 
 import { createContext, useState, useCallback, ReactNode } from 'react';

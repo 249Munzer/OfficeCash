@@ -1,6 +1,18 @@
 import { useCallback } from 'react';
 import { Service } from '../types';
 
+/**
+ * Hook عمليات الخدمات (إضافة/تعديل/حذف + بث P2P).
+ * يغلف `addService`/`updateService`/`deleteService` من `useAppState` مع إنشاء `id`/`createdAt`
+ * ويُشغّل `broadcastP2PChange` بعد كل تعديل.
+ * @param _services - مصفوفة الخدمات (للاعتمادية)
+ * @param _setServices - setter للحالة
+ * @param addService - دالة إضافة من useAppState
+ * @param updateService - دالة تعديل من useAppState
+ * @param deleteService - دالة حذف من useAppState
+ * @param broadcastP2PChange - دالة بث التغيير لأجهزة الشبكة
+ * @returns {Object} دوال `handleAddService`، `handleUpdateService`، `handleDeleteService`
+ */
 export function useServices(
   _services: Service[],
   _setServices: React.Dispatch<React.SetStateAction<Service[]>>,

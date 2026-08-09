@@ -44,10 +44,10 @@ export async function hashPin(pin: string): Promise<string> {
  * @param storedValue - القيمة المخزنة (hash أو PIN نصي)
  * @returns true إذا كان PIN نصي واضح يحتاج تشفير
  */
-export function isPlainPin(storedValue: string): boolean {
+export function isPlainPin(storedValue: string | null | undefined): boolean {
   // الـ hash الناتج من SHA-256 يكون 64 حرف hex
   // PIN النصي يكون عادة 4-6 أرقام
-  return storedValue.length < 20;
+  return typeof storedValue === 'string' && storedValue.length < 20;
 }
 
 /**

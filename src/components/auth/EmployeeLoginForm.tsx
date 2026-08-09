@@ -1,3 +1,12 @@
+/**
+ * نموذج دخول الموظف — اختيار حساب الموظف من القائمة ثم إدخال PIN لتسجيل الدخول.
+ * @component
+ * @param {Object} props
+ * @param {Employee[]} props.employees - قائمة الموظفين
+ * @param {string} props.defaultSelectedId - الموظف المحدد افتراضياً (اختياري)
+ * @param {Function} props.onLogin - محاولة تسجيل دخول الموظف
+ * @param {Function} props.t - دالة الترجمة
+ */
 import React, { useState } from 'react';
 import { KeyRound, Users } from 'lucide-react';
 import { Employee } from '../../types';
@@ -42,6 +51,8 @@ export const EmployeeLoginForm: React.FC<EmployeeLoginFormProps> = ({
       } else {
         setErrorMsg(t('lpErrWrongPin'));
       }
+    } catch {
+      setErrorMsg(t('lpErrGeneric'));
     } finally {
       setSubmitting(false);
     }

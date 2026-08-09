@@ -1,4 +1,9 @@
 /**
+ * @license
+ * SPDX-License-Identifier: Apache-2.0
+ */
+
+/**
  * نظام توثيق موحد للأرقام السرية (PIN / Passphrase)
  *
  * الصيغ المدعومة في التخزين:
@@ -9,6 +14,7 @@
  * سياسة الترقية:
  *   عند نجاح التحقق بصيغة قديمة تعيد الدالة upgradable=true
  *   ليتمكن المتصل من حفظ hashCredential(input) الجديد فوراً في التخزين.
+ * @module lib/auth/credentials
  */
 
 const PREFIX = 'sha256';

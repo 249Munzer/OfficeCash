@@ -29,6 +29,12 @@ try {
     saveDayClosing: (data) => ipcRenderer.invoke('db:saveDayClosing', data),
     replaceDayClosings: (closings) => ipcRenderer.invoke('db:replaceDayClosings', closings),
 
+    getAttendance: () => ipcRenderer.invoke('db:getAttendance'),
+    replaceAttendance: (records) => ipcRenderer.invoke('db:replaceAttendance', records),
+
+    getSettlements: () => ipcRenderer.invoke('db:getSettlements'),
+    replaceSettlements: (settlements) => ipcRenderer.invoke('db:replaceSettlements', settlements),
+
     getSettings: () => ipcRenderer.invoke('db:getSettings'),
     saveSettings: (settings) => ipcRenderer.invoke('db:saveSettings', settings),
 
@@ -37,6 +43,7 @@ try {
 
     resetToDemoData: () => ipcRenderer.invoke('db:resetToDemoData'),
     clearData: () => ipcRenderer.invoke('db:clearData'),
+    deleteOffice: () => ipcRenderer.invoke('db:deleteOffice'),
 
     // مزامنة الشبكة المحلية
     syncGetState: () => ipcRenderer.invoke('db:syncGetState'),

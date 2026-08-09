@@ -1,11 +1,28 @@
-﻿import React, { useState } from 'react';
+﻿/**
+ * نافذة الدخول — تبديل بين دخول المدير والموظف، ربط LAN عبر رمز المزامنة،
+ * وفتح استرداد كلمة مرور المدير عبر أسئلة الأمان.
+ * @component
+ * @param {Object} props
+ * @param {boolean} props.isOpen - هل النافذة مفتوحة
+ * @param {Employee[]} props.employees - قائمة الموظفين
+ * @param {OfficeSettings} props.settings - الإعدادات ورمز مزامنة الشبكة
+ * @param {Employee|null} props.activeEmployee - الموظف المسجل دخوله حالياً
+ * @param {Function} props.onLoginAsEmployee - تسجيل دخول موظف
+ * @param {Function} props.onLoginAsAdmin - تسجيل دخول مدير
+ * @param {Function} props.onVerifyAnswers - التحقق من إجابات أسئلة الأمان
+ * @param {Function} props.onResetPin - إعادة تعيين PIN بعد التحقق
+ * @param {Function} props.onClose - إغلاق النافذة
+ * @param {Object} props.syncStatus - حالة المزامنة للعرض (اختياري)
+ * @param {string} props.initialTab - التبويب الابتدائي: موظف أو مدير (اختياري)
+ */
+import React, { useState, useEffect } from 'react';
 import { Shield, Users, Radio, CheckCircle2, Building2 } from 'lucide-react';
 import { Employee, OfficeSettings } from '../types';
 import { makeT } from '../lib/i18n';
 import { motion, AnimatePresence } from 'motion/react';
 import type { SyncStatus } from '../lib/electron-storage';
 import { EmployeeLoginForm } from './auth/EmployeeLoginForm';
-import { AdminLoginForm } from './auth/AdminLoginForm';
+import { AdminLoginForm, ResetPinErrorCode } from './auth/AdminLoginForm';
 
 interface AuthModalProps {
   isOpen: boolean;
@@ -14,8 +31,16 @@ interface AuthModalProps {
   activeEmployee: Employee | null;
   onLoginAsEmployee: (employeeId: string, pin: string) => Promise<boolean> | boolean;
   onLoginAsAdmin: (adminPin: string) => Promise<boolean> | boolean;
+  onVerifyAnswers: (
+    answers: Array<{ questionId: string; answer: string }>
+  ) => Promise<{ valid: boolean; error?: ResetPinErrorCode }>;
+  onResetPin: (
+    answers: Array<{ questionId: string; answer: string }>,
+    newPin: string
+  ) => Promise<{ ok: boolean; error?: ResetPinErrorCode }>;
   onClose: () => void;
   syncStatus?: SyncStatus | null;
+  initialTab?: 'employee' | 'admin';
 }
 
 export const AuthModal: React.FC<AuthModalProps> = ({
@@ -25,13 +50,24 @@ export const AuthModal: React.FC<AuthModalProps> = ({
   activeEmployee,
   onLoginAsEmployee,
   onLoginAsAdmin,
+  onVerifyAnswers,
+  onResetPin,
   onClose,
   syncStatus,
+  initialTab = 'employee',
 }) => {
-  const [authType, setAuthType] = useState<'employee' | 'admin'>('employee');
+  const [authType, setAuthType] = useState<'employee' | 'admin'>(initialTab);
   const [copiedSyncCode, setCopiedSyncCode] = useState<boolean>(false);
 
   const t = makeT(settings.language);
+
+  // عند فتح المودال يبدأ من التبويب المطلوب (تبويب المدير عند التبديل من بوابة الموظف)
+  useEffect(() => {
+    if (isOpen) {
+      setAuthType(initialTab);
+      setCopiedSyncCode(false);
+    }
+  }, [isOpen, initialTab]);
 
   const handleCopySyncCode = () => {
     const code = settings.networkSyncCode || '';
@@ -140,7 +176,13 @@ export const AuthModal: React.FC<AuthModalProps> = ({
                   t={t}
                 />
               ) : (
-                <AdminLoginForm onLogin={handleAdminLogin} t={t} />
+                <AdminLoginForm
+                  onLogin={handleAdminLogin}
+                  t={t}
+                  settings={settings}
+                  onVerifyAnswers={onVerifyAnswers}
+                  onResetPin={onResetPin}
+                />
               )}
 
               <div className="pt-2 text-center">

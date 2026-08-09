@@ -1,4 +1,20 @@
-﻿import React, { useState } from 'react';
+﻿/**
+ * شاشة البداية — ثلاث تبويبات: دخول (مدير/موظف)، إنشاء مكتب جديد،
+ * وربط جهاز بشبكة LAN عبر رمز المزامنة، مع عرض حالة الاتصال بالشبكة.
+ * @component
+ * @param {Object} props
+ * @param {OfficeSettings} props.settings - الإعدادات ورمز مزامنة الشبكة
+ * @param {Employee[]} props.employees - قائمة الموظفين
+ * @param {Function} props.onLoginAsAdmin - تسجيل دخول مدير
+ * @param {Function} props.onLoginAsEmployee - تسجيل دخول موظف
+ * @param {Function} props.onCreateNewOffice - إنشاء مكتب جديد
+ * @param {Function} props.onJoinLAN - الانضمام إلى مكتب عبر رمز LAN
+ * @param {Function} props.onVerifyAnswers - التحقق من إجابات أسئلة الأمان
+ * @param {Function} props.onResetPin - إعادة تعيين PIN بعد التحقق
+ * @param {Object} props.syncStatus - حالة المزامنة
+ * @param {Function} props.onRefreshSyncStatus - تحديث حالة المزامنة (اختياري)
+ */
+import React, { useState } from 'react';
 import {
   Building2,
   Users,
@@ -16,7 +32,7 @@ import type { OfficeRegistrationInput } from '../lib/auth/registration';
 import { useToast } from './Toast';
 import type { SyncStatus } from '../lib/electron-storage';
 import { EmployeeLoginForm } from './auth/EmployeeLoginForm';
-import { AdminLoginForm } from './auth/AdminLoginForm';
+import { AdminLoginForm, ResetPinErrorCode } from './auth/AdminLoginForm';
 import { OfficeRegistrationForm } from './auth/OfficeRegistrationForm';
 
 export interface OfficeCreationResult {
@@ -31,6 +47,13 @@ interface LandingPageProps {
   onLoginAsEmployee: (employeeId: string, pin: string) => Promise<boolean> | boolean;
   onCreateNewOffice: (data: OfficeRegistrationInput) => Promise<OfficeCreationResult> | OfficeCreationResult;
   onJoinLAN: (syncCode: string) => Promise<OfficeCreationResult> | OfficeCreationResult;
+  onVerifyAnswers: (
+    answers: Array<{ questionId: string; answer: string }>
+  ) => Promise<{ valid: boolean; error?: ResetPinErrorCode }>;
+  onResetPin: (
+    answers: Array<{ questionId: string; answer: string }>,
+    newPin: string
+  ) => Promise<{ ok: boolean; error?: ResetPinErrorCode }>;
   syncStatus: SyncStatus | null;
   onRefreshSyncStatus?: () => void;
 }
@@ -42,6 +65,8 @@ export const LandingPage: React.FC<LandingPageProps> = ({
   onLoginAsEmployee,
   onCreateNewOffice,
   onJoinLAN,
+  onVerifyAnswers,
+  onResetPin,
   syncStatus,
   onRefreshSyncStatus,
 }) => {
@@ -325,7 +350,13 @@ export const LandingPage: React.FC<LandingPageProps> = ({
                   t={t}
                 />
               ) : (
-                <AdminLoginForm onLogin={onLoginAsAdmin} t={t} />
+                <AdminLoginForm
+                  onLogin={onLoginAsAdmin}
+                  t={t}
+                  settings={settings}
+                  onVerifyAnswers={onVerifyAnswers}
+                  onResetPin={onResetPin}
+                />
               )}
             </div>
           )}

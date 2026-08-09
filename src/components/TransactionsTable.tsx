@@ -1,4 +1,19 @@
-﻿import React, { useState } from 'react';
+﻿/**
+ * جدول المعاملات — عرض المعاملات مع فلترة بالموظف والخدمة وطريقة الدفع والتاريخ،
+ * بحث، تعديل/حذف مع تأكيد، ترقيم صفحات، وتصدير إلى CSV أو طباعة.
+ * @component
+ * @param {Object} props
+ * @param {FinancialEntry[]} props.entries - سجل المعاملات
+ * @param {Employee[]} props.employees - قائمة الموظفين للفلترة
+ * @param {Service[]} props.services - قائمة الخدمات للفلترة
+ * @param {OfficeSettings} props.settings - اللغة والعملة
+ * @param {string} props.searchQuery - نص البحث
+ * @param {Function} props.onOpenFastEntry - فتح نافذة الإدخال السريع
+ * @param {Function} props.onUpdateEntry - تعديل معاملة
+ * @param {Function} props.onDeleteEntry - حذف معاملة
+ * @param {Function} props.onPrintReport - طباعة التقرير (اختياري)
+ */
+import React, { useState } from 'react';
 import {
   Download,
   Printer,

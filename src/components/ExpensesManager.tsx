@@ -1,4 +1,14 @@
-﻿import React, { useState } from 'react';
+﻿/**
+ * إدارة المصروفات اليومية — إضافة مصروف (بيان، مبلغ، فئة، ملاحظات، تاريخ)،
+ * عرض قائمة المصروفات وحذفها وتصديرها إلى CSV.
+ * @component
+ * @param {Object} props
+ * @param {Expense[]} props.expenses - قائمة المصروفات
+ * @param {OfficeSettings} props.settings - اللغة والعملة
+ * @param {Function} props.onAddExpense - إضافة مصروف جديد
+ * @param {Function} props.onDeleteExpense - حذف مصروف
+ */
+import React, { useState } from 'react';
 import {
   Wallet,
   Download,

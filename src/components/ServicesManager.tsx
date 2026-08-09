@@ -1,4 +1,16 @@
-﻿import React, { useState } from 'react';
+﻿/**
+ * دليل الخدمات — إدارة الخدمات والأسعار الافتراضية والتصنيفات،
+ * مع بحث وتصفية بالتصنيف وحذف الخدمات مع منع حذف المستخدمة في المعاملات.
+ * @component
+ * @param {Object} props
+ * @param {Service[]} props.services - قائمة الخدمات
+ * @param {FinancialEntry[]} props.entries - سجل المعاملات لفحص استخدام الخدمة
+ * @param {OfficeSettings} props.settings - اللغة والعملة
+ * @param {Function} props.onAddService - إضافة خدمة
+ * @param {Function} props.onUpdateService - تعديل خدمة
+ * @param {Function} props.onDeleteService - حذف خدمة
+ */
+import React, { useState } from 'react';
 import {
   Briefcase,
   Plus,

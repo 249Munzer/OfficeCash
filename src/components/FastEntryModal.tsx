@@ -1,4 +1,17 @@
-﻿import React, { useState, useEffect, useRef } from 'react';
+﻿/**
+ * نافذة تسجيل معاملة سريعة (<5 ثوانٍ) — اختيار موظف وخدمة (السعر تلقائي)،
+ * مبلغ وطريقة دفع وبيان اختياري، مع قفل الإدخال عند إغلاق اليوم حسب الإعداد.
+ * @component
+ * @param {Object} props
+ * @param {boolean} props.isOpen - هل النافذة مفتوحة
+ * @param {Function} props.onClose - إغلاق النافذة
+ * @param {Employee[]} props.employees - قائمة الموظفين (النشطون فقط)
+ * @param {Service[]} props.services - قائمة الخدمات
+ * @param {OfficeSettings} props.settings - اللغة والعملة
+ * @param {boolean} props.isTodayClosed - هل أُغلق اليوم الحالي
+ * @param {Function} props.onAddEntry - حفظ المعاملة الجديدة
+ */
+import React, { useState, useEffect, useRef } from 'react';
 import {
   PlusCircle,
   X,
@@ -90,6 +103,8 @@ export const FastEntryModal: React.FC<FastEntryModalProps> = ({
     const service = activeServices.find((s) => s.id === serviceId);
     if (service) {
       setAmount(String(service.defaultPrice));
+    } else {
+      setAmount('');
     }
   };
 
@@ -104,8 +119,12 @@ export const FastEntryModal: React.FC<FastEntryModalProps> = ({
     const emp = activeEmployees.find((e) => e.id === selectedEmployeeId);
     const srv = activeServices.find((s) => s.id === selectedServiceId);
 
-    if (!emp || !srv) {
+    if (!emp) {
       showError(t('feValidation'));
+      return;
+    }
+    if (!statement.trim()) {
+      showError(t('feStatementRequired'));
       return;
     }
     const amountResult = validateAmount(amount);
@@ -114,15 +133,16 @@ export const FastEntryModal: React.FC<FastEntryModalProps> = ({
       return;
     }
     const numAmount = parseFloat(amount);
+    const serviceName = srv ? srv.name : t('feUntitledService');
 
     onAddEntry({
       employeeId: emp.id,
       employeeName: emp.name,
-      serviceId: srv.id,
-      serviceName: srv.name,
+      serviceId: srv ? srv.id : 'ad-hoc',
+      serviceName,
       amount: numAmount,
       paymentMethod,
-      statement: statement.trim() || undefined,
+      statement: statement.trim(),
       notes: notes.trim() || undefined,
     });
 
@@ -132,7 +152,7 @@ export const FastEntryModal: React.FC<FastEntryModalProps> = ({
 
     showSuccess(
       t('feSavedToast', {
-        service: srv.name,
+        service: serviceName,
         employee: emp.name,
         amount: formatCurrency(numAmount, settings.currency, lang),
       }),
@@ -230,8 +250,7 @@ export const FastEntryModal: React.FC<FastEntryModalProps> = ({
           <div>
             <label className="block text-xs font-bold text-slate-700 mb-2 flex items-center gap-1.5">
               <Tag className="w-4 h-4 text-emerald-600" />
-              <span>{t('requiredService')}</span>
-              <span className="text-rose-500">*</span>
+              <span>{t('feServiceOptional')}</span>
             </label>
             <select
               ref={serviceRef}
@@ -239,6 +258,7 @@ export const FastEntryModal: React.FC<FastEntryModalProps> = ({
               onChange={(e) => handleServiceChange(e.target.value)}
               className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2.5 text-xs font-bold text-slate-800 focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:bg-white transition-all"
             >
+              <option value="">{t('feNoServiceOption')}</option>
               {activeServices.map((srv) => (
                 <option key={srv.id} value={srv.id}>
                   {srv.name} ({srv.category}) — {srv.defaultPrice} {settings.currency}
@@ -322,19 +342,21 @@ export const FastEntryModal: React.FC<FastEntryModalProps> = ({
             </div>
           </div>
 
-          {/* Statement / Notes (Optional) */}
+          {/* Statement / Notes (Required) */}
           <div className="space-y-3">
             <div>
               <label className="block text-xs font-bold text-slate-700 mb-1 flex items-center gap-1.5">
-                <FileText className="w-3.5 h-3.5 text-slate-400" />
+                <FileText className="w-3.5 h-3.5 text-emerald-600" />
                 <span>{t('feStatementLabel')}</span>
+                <span className="text-rose-500">*</span>
               </label>
               <input
                 type="text"
+                required
                 value={statement}
                 onChange={(e) => setStatement(e.target.value)}
                 placeholder={t('feStatementPlaceholder')}
-                className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-xs text-slate-800 focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:bg-white"
+                className="w-full bg-slate-50 border border-slate-300 rounded-xl px-3 py-2 text-xs text-slate-800 focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:bg-white"
               />
             </div>
           </div>

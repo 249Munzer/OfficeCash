@@ -1,17 +1,47 @@
+/**
+ * نموذج دخول المدير — إدخال PIN المدير مع عرض الصلاحيات،
+ * ورابط "نسيت كلمة المرور" لفتح نافذة الاسترداد عبر أسئلة الأمان.
+ * @component
+ * @param {Object} props
+ * @param {Function} props.onLogin - محاولة تسجيل دخول المدير
+ * @param {Function} props.t - دالة الترجمة
+ * @param {OfficeSettings} props.settings - الإعدادات (لأسئلة الأمان)
+ * @param {Function} props.onVerifyAnswers - التحقق من إجابات أسئلة الأمان
+ * @param {Function} props.onResetPin - إعادة تعيين PIN بعد التحقق
+ */
 import React, { useState } from 'react';
 import { KeyRound, ShieldCheck } from 'lucide-react';
+import { OfficeSettings } from '../../types';
 import { TFunc } from './shared';
 import { LoginErrorBox } from './LoginErrorBox';
+import { ForgotPasswordModal } from './ForgotPasswordModal';
+
+export type ResetPinErrorCode = 'answers' | 'invalid-pin' | 'storage' | 'unavailable';
 
 interface AdminLoginFormProps {
   onLogin: (adminPin: string) => Promise<boolean> | boolean;
   t: TFunc;
+  settings: OfficeSettings;
+  onVerifyAnswers: (
+    answers: Array<{ questionId: string; answer: string }>
+  ) => Promise<{ valid: boolean; error?: ResetPinErrorCode }>;
+  onResetPin: (
+    answers: Array<{ questionId: string; answer: string }>,
+    newPin: string
+  ) => Promise<{ ok: boolean; error?: ResetPinErrorCode }>;
 }
 
-export const AdminLoginForm: React.FC<AdminLoginFormProps> = ({ onLogin, t }) => {
+export const AdminLoginForm: React.FC<AdminLoginFormProps> = ({
+  onLogin,
+  t,
+  settings,
+  onVerifyAnswers,
+  onResetPin,
+}) => {
   const [adminPin, setAdminPin] = useState<string>('');
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
+  const [forgotOpen, setForgotOpen] = useState(false);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -24,12 +54,15 @@ export const AdminLoginForm: React.FC<AdminLoginFormProps> = ({ onLogin, t }) =>
       } else {
         setErrorMsg(t('lpErrWrongAdmin'));
       }
+    } catch {
+      setErrorMsg(t('lpErrGeneric'));
     } finally {
       setSubmitting(false);
     }
   };
 
   return (
+    <>
     <form onSubmit={handleSubmit} className="space-y-4">
       <div className="bg-blue-50 border border-blue-200 text-blue-800 dark:bg-blue-950/50 dark:border-blue-800/60 dark:text-blue-200 p-3.5 rounded-2xl text-xs space-y-1">
         <span className="font-extrabold flex items-center gap-1">
@@ -64,6 +97,16 @@ export const AdminLoginForm: React.FC<AdminLoginFormProps> = ({ onLogin, t }) =>
         </span>
       </div>
 
+      <div className="flex items-center justify-between">
+        <button
+          type="button"
+          onClick={() => setForgotOpen(true)}
+          className="text-xs font-bold text-blue-600 hover:text-blue-700 dark:text-blue-400 dark:hover:text-blue-300 transition-colors cursor-pointer"
+        >
+          {t('fpOpenLink')}
+        </button>
+      </div>
+
       <LoginErrorBox message={errorMsg} />
 
       <button
@@ -74,6 +117,17 @@ export const AdminLoginForm: React.FC<AdminLoginFormProps> = ({ onLogin, t }) =>
         <ShieldCheck className="w-4 h-4" />
         <span>{t('adminMainDashboardBtn')}</span>
       </button>
+
     </form>
+
+    <ForgotPasswordModal
+      isOpen={forgotOpen}
+      settings={settings}
+      language={settings.language ?? 'ar'}
+      onClose={() => setForgotOpen(false)}
+      onVerifyAnswers={onVerifyAnswers}
+      onResetPin={onResetPin}
+    />
+    </>
   );
 };

@@ -33,12 +33,66 @@ function createWindow() {
 
 // ======================= بيانات وإعدادات =======================
 
+// توحيد الكائنات قبل الحفظ: ضمان وجود كل عمود من أعمدة الجدول بقيمة افتراضية
+// (better-sqlite3 يرفض الحفظ إذا غاب أي معرّف اسمي @param من الكائن المُمرَّر)
+function pickRow(obj, fields) {
+  const out = {};
+  for (const f of fields) out[f] = obj[f];
+  return out;
+}
+
 function normalizeEmployee(e) {
-  return { ...e, isActive: e.isActive ? 1 : 0 };
+  const base = pickRow(e, ['id', 'name', 'username', 'passwordPin', 'color', 'notes', 'createdAt']);
+  return {
+    id: base.id,
+    name: base.name,
+    username: base.username ?? null,
+    jobTitle: e.jobTitle ?? '',
+    phone: e.phone ?? '',
+    passwordPin: base.passwordPin ?? null,
+    color: base.color ?? '#2563eb',
+    isActive: e.isActive ? 1 : 0,
+    notes: base.notes ?? null,
+    createdAt: base.createdAt ?? new Date().toISOString(),
+    contract: e.contract ? JSON.stringify(e.contract) : null,
+  };
+}
+
+function parseContract(value) {
+  if (!value) return undefined;
+  try {
+    return JSON.parse(value);
+  } catch {
+    return undefined;
+  }
 }
 
 function normalizeService(s) {
-  return { ...s, isActive: s.isActive ? 1 : 0 };
+  const base = pickRow(s, ['id', 'name', 'category', 'defaultPrice', 'isActive', 'notes', 'createdAt']);
+  return {
+    id: base.id,
+    name: base.name,
+    category: base.category ?? '',
+    defaultPrice: typeof base.defaultPrice === 'number' ? base.defaultPrice : parseFloat(base.defaultPrice) || 0,
+    isActive: base.isActive ? 1 : 0,
+    notes: base.notes ?? null,
+    createdAt: base.createdAt ?? new Date().toISOString(),
+  };
+}
+
+function normalizeExpense(exp) {
+  const base = pickRow(exp, ['id', 'date', 'time', 'category', 'amount', 'statement', 'recipient', 'notes', 'createdAt']);
+  return {
+    id: base.id,
+    date: base.date,
+    time: base.time ?? '',
+    category: base.category ?? '',
+    amount: typeof base.amount === 'number' ? base.amount : parseFloat(base.amount) || 0,
+    statement: base.statement ?? null,
+    recipient: base.recipient ?? null,
+    notes: base.notes ?? null,
+    createdAt: base.createdAt ?? new Date().toISOString(),
+  };
 }
 
 function readSettings() {
@@ -67,8 +121,34 @@ function takeSnapshot() {
     employees: db.prepare('SELECT * FROM employees ORDER BY createdAt DESC').all(),
     services: db.prepare('SELECT * FROM services ORDER BY createdAt DESC').all(),
     dayClosings: db.prepare('SELECT * FROM day_closings ORDER BY date DESC').all(),
+    attendance: readAttendanceRows(),
+    settlements: db.prepare('SELECT * FROM settlements ORDER BY createdAt DESC').all(),
     settings: readSettings(),
   };
+}
+
+function serializeBreaks(breaks) {
+  return JSON.stringify(breaks || []);
+}
+
+function parseBreaks(value) {
+  if (!value) return [];
+  try {
+    return JSON.parse(value);
+  } catch {
+    return [];
+  }
+}
+
+function readAttendanceRows() {
+  return db.prepare('SELECT * FROM attendance ORDER BY createdAt DESC').all().map((r) => ({
+    ...r,
+    breaks: parseBreaks(r.breaks),
+  }));
+}
+
+function normalizeAttendance(r) {
+  return { ...r, breaks: serializeBreaks(r.breaks) };
 }
 
 function notifyWindowsOfDataChange() {
@@ -181,7 +261,7 @@ function setupIpcHandlers() {
       INSERT INTO expenses (id, date, time, category, amount, statement, recipient, notes, createdAt)
       VALUES (@id, @date, @time, @category, @amount, @statement, @recipient, @notes, @createdAt)
     `);
-    stmt.run(exp);
+    stmt.run(normalizeExpense(exp));
     syncEngine.broadcastLocalChange();
     return true;
   });
@@ -203,7 +283,7 @@ function setupIpcHandlers() {
         INSERT INTO expenses (id, date, time, category, amount, statement, recipient, notes, createdAt)
         VALUES (@id, @date, @time, @category, @amount, @statement, @recipient, @notes, @createdAt)
       `);
-      for (const exp of list) stmt.run(exp);
+      for (const exp of list) stmt.run(normalizeExpense(exp));
     });
     replace(expenses);
     syncEngine.broadcastLocalChange();
@@ -212,13 +292,17 @@ function setupIpcHandlers() {
 
   // الموظفين
   ipcMain.handle('db:getEmployees', () => {
-    return db.prepare('SELECT * FROM employees').all();
+    return db.prepare('SELECT * FROM employees').all().map((r) => ({
+      ...r,
+      isActive: !!r.isActive,
+      contract: parseContract(r.contract),
+    }));
   });
 
   ipcMain.handle('db:saveEmployee', (_, emp) => {
     const stmt = db.prepare(`
-      INSERT OR REPLACE INTO employees (id, name, username, jobTitle, phone, passwordPin, color, isActive, notes, createdAt)
-      VALUES (@id, @name, @username, @jobTitle, @phone, @passwordPin, @color, @isActive, @notes, @createdAt)
+      INSERT OR REPLACE INTO employees (id, name, username, jobTitle, phone, passwordPin, color, isActive, notes, createdAt, contract)
+      VALUES (@id, @name, @username, @jobTitle, @phone, @passwordPin, @color, @isActive, @notes, @createdAt, @contract)
     `);
     stmt.run(normalizeEmployee(emp));
     syncEngine.broadcastLocalChange();
@@ -239,8 +323,8 @@ function setupIpcHandlers() {
     const replace = db.transaction((list) => {
       db.prepare('DELETE FROM employees').run();
       const stmt = db.prepare(`
-        INSERT INTO employees (id, name, username, jobTitle, phone, passwordPin, color, isActive, notes, createdAt)
-        VALUES (@id, @name, @username, @jobTitle, @phone, @passwordPin, @color, @isActive, @notes, @createdAt)
+        INSERT INTO employees (id, name, username, jobTitle, phone, passwordPin, color, isActive, notes, createdAt, contract)
+        VALUES (@id, @name, @username, @jobTitle, @phone, @passwordPin, @color, @isActive, @notes, @createdAt, @contract)
       `);
       for (const emp of list) stmt.run(normalizeEmployee(emp));
     });
@@ -298,8 +382,8 @@ function setupIpcHandlers() {
     const save = db.transaction((c) => {
       db.prepare('DELETE FROM day_closings WHERE date = ?').run(c.date);
       const stmt = db.prepare(`
-        INSERT INTO day_closings (id, date, closingTimestamp, totalRevenue, totalCash, totalCard, totalTransfer, totalExpenses, netIncome, entriesCount, physicalCashDrawer, cashDifference, closedBy, notes)
-        VALUES (@id, @date, @closingTimestamp, @totalRevenue, @totalCash, @totalCard, @totalTransfer, @totalExpenses, @netIncome, @entriesCount, @physicalCashDrawer, @cashDifference, @closedBy, @notes)
+        INSERT INTO day_closings (id, date, closingTimestamp, totalRevenue, totalCash, totalCard, totalTransfer, totalExpenses, employeeCommission, netIncome, entriesCount, physicalCashDrawer, cashDifference, closedBy, notes)
+        VALUES (@id, @date, @closingTimestamp, @totalRevenue, @totalCash, @totalCard, @totalTransfer, @totalExpenses, @employeeCommission, @netIncome, @entriesCount, @physicalCashDrawer, @cashDifference, @closedBy, @notes)
       `);
       stmt.run(c);
     });
@@ -312,8 +396,8 @@ function setupIpcHandlers() {
     const replace = db.transaction((list) => {
       db.prepare('DELETE FROM day_closings').run();
       const stmt = db.prepare(`
-        INSERT INTO day_closings (id, date, closingTimestamp, totalRevenue, totalCash, totalCard, totalTransfer, totalExpenses, netIncome, entriesCount, physicalCashDrawer, cashDifference, closedBy, notes)
-        VALUES (@id, @date, @closingTimestamp, @totalRevenue, @totalCash, @totalCard, @totalTransfer, @totalExpenses, @netIncome, @entriesCount, @physicalCashDrawer, @cashDifference, @closedBy, @notes)
+        INSERT INTO day_closings (id, date, closingTimestamp, totalRevenue, totalCash, totalCard, totalTransfer, totalExpenses, employeeCommission, netIncome, entriesCount, physicalCashDrawer, cashDifference, closedBy, notes)
+        VALUES (@id, @date, @closingTimestamp, @totalRevenue, @totalCash, @totalCard, @totalTransfer, @totalExpenses, @employeeCommission, @netIncome, @entriesCount, @physicalCashDrawer, @cashDifference, @closedBy, @notes)
       `);
       for (const closing of list) stmt.run(closing);
     });
@@ -328,6 +412,44 @@ function setupIpcHandlers() {
     } else {
       db.prepare('DELETE FROM day_closings WHERE id = ?').run(id);
     }
+    syncEngine.broadcastLocalChange();
+    return true;
+  });
+
+  // سجلات الحضور (اليوم الموثّق)
+  ipcMain.handle('db:getAttendance', () => {
+    return readAttendanceRows();
+  });
+
+  ipcMain.handle('db:replaceAttendance', (_, records) => {
+    const replace = db.transaction((list) => {
+      db.prepare('DELETE FROM attendance').run();
+      const stmt = db.prepare(`
+        INSERT INTO attendance (id, employeeId, date, clockIn, breaks, status, clockOut, createdAt)
+        VALUES (@id, @employeeId, @date, @clockIn, @breaks, @status, @clockOut, @createdAt)
+      `);
+      for (const r of list) stmt.run(normalizeAttendance(r));
+    });
+    replace(records);
+    syncEngine.broadcastLocalChange();
+    return true;
+  });
+
+  // التصفية والمستحقات
+  ipcMain.handle('db:getSettlements', () => {
+    return db.prepare('SELECT * FROM settlements ORDER BY createdAt DESC').all();
+  });
+
+  ipcMain.handle('db:replaceSettlements', (_, settlements) => {
+    const replace = db.transaction((list) => {
+      db.prepare('DELETE FROM settlements').run();
+      const stmt = db.prepare(`
+        INSERT INTO settlements (id, employeeId, employeeName, type, periodStart, periodEnd, grossRevenue, amount, commissionRate, status, voucherNo, createdAt, adminConfirmedAt, employeeConfirmedAt, createdBy)
+        VALUES (@id, @employeeId, @employeeName, @type, @periodStart, @periodEnd, @grossRevenue, @amount, @commissionRate, @status, @voucherNo, @createdAt, @adminConfirmedAt, @employeeConfirmedAt, @createdBy)
+      `);
+      for (const s of list) stmt.run(s);
+    });
+    replace(settlements);
     syncEngine.broadcastLocalChange();
     return true;
   });
@@ -379,6 +501,8 @@ function setupIpcHandlers() {
     db.prepare('DELETE FROM financial_entries').run();
     db.prepare('DELETE FROM expenses').run();
     db.prepare('DELETE FROM day_closings').run();
+    db.prepare('DELETE FROM attendance').run();
+    db.prepare('DELETE FROM settlements').run();
     db.prepare('DELETE FROM employees').run();
     db.prepare('DELETE FROM services').run();
     db.prepare('DELETE FROM settings WHERE key != ? AND key != ?').run('authSession', 'machineId');
@@ -392,8 +516,25 @@ function setupIpcHandlers() {
     db.prepare('DELETE FROM financial_entries').run();
     db.prepare('DELETE FROM expenses').run();
     db.prepare('DELETE FROM day_closings').run();
+    db.prepare('DELETE FROM attendance').run();
+    db.prepare('DELETE FROM settlements').run();
     db.prepare('DELETE FROM employees').run();
     db.prepare('DELETE FROM services').run();
+    syncEngine.broadcastLocalChange();
+    return true;
+  });
+
+  ipcMain.handle('db:deleteOffice', async () => {
+    // حذف المكتب نهائياً: كل البيانات التشغيلية + الإعدادات + جلسة المصادقة + رمز المزامنة
+    db.prepare('DELETE FROM financial_entries').run();
+    db.prepare('DELETE FROM expenses').run();
+    db.prepare('DELETE FROM day_closings').run();
+    db.prepare('DELETE FROM attendance').run();
+    db.prepare('DELETE FROM settlements').run();
+    db.prepare('DELETE FROM employees').run();
+    db.prepare('DELETE FROM services').run();
+    db.prepare('DELETE FROM settings').run();
+    syncEngine.setCode('');
     syncEngine.broadcastLocalChange();
     return true;
   });

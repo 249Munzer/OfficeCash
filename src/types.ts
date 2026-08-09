@@ -1,5 +1,28 @@
 export type PaymentMethod = 'cash' | 'card' | 'transfer';
 
+export type CompensationMode = 'percentage' | 'salary' | 'percentage_and_salary';
+
+export type PayCycle = 'daily' | 'weekly' | 'monthly';
+
+export type AttendanceStatus = 'working' | 'break' | 'done';
+
+export type SettlementStatus = 'pending' | 'confirmed' | 'paid';
+
+export type SettlementType = 'daily_commission' | 'weekly' | 'monthly';
+
+export interface BreakInterval {
+  start: string;
+  end?: string;
+}
+
+export interface EmployeeContract {
+  mode: CompensationMode;
+  commissionRate?: number;
+  salaryAmount?: number;
+  salaryCycle?: PayCycle;
+  requiresAttendance?: boolean;
+}
+
 export interface Employee {
   id: string;
   name: string;
@@ -10,6 +33,7 @@ export interface Employee {
   notes?: string;
   createdAt: string;
   lastLogin?: string;
+  contract?: EmployeeContract;
 }
 
 export interface Service {
@@ -24,8 +48,8 @@ export interface Service {
 
 export interface FinancialEntry {
   id: string;
-  date: string; // YYYY-MM-DD
-  time: string; // HH:mm:ss
+  date: string;
+  time: string;
   employeeId: string;
   employeeName: string;
   serviceId: string;
@@ -40,8 +64,8 @@ export interface FinancialEntry {
 
 export interface Expense {
   id: string;
-  date: string; // YYYY-MM-DD
-  time: string; // HH:mm
+  date: string;
+  time: string;
   category: string;
   statement: string;
   amount: number;
@@ -51,19 +75,54 @@ export interface Expense {
 
 export interface DayClosing {
   id: string;
-  date: string; // YYYY-MM-DD
+  date: string;
   closingTimestamp: string;
   totalRevenue: number;
   totalCash: number;
   totalCard: number;
   totalTransfer: number;
   totalExpenses: number;
+  employeeCommission?: number;
   netIncome: number;
   entriesCount: number;
   physicalCashDrawer?: number;
   cashDifference?: number;
   closedBy: string;
   notes?: string;
+}
+
+export interface AttendanceRecord {
+  id: string;
+  employeeId: string;
+  date: string;
+  clockIn: string;
+  breaks: BreakInterval[];
+  status: AttendanceStatus;
+  clockOut?: string;
+  createdAt: string;
+}
+
+export interface Settlement {
+  id: string;
+  employeeId: string;
+  employeeName: string;
+  type: SettlementType;
+  periodStart: string;
+  periodEnd: string;
+  grossRevenue: number;
+  amount: number;
+  commissionRate: number;
+  status: SettlementStatus;
+  voucherNo: string;
+  createdAt: string;
+  createdBy: string;
+  adminConfirmedAt?: string;
+  employeeConfirmedAt?: string;
+}
+
+export interface SecurityQuestionAnswer {
+  questionId: string;
+  answerHash: string;
 }
 
 export interface OfficeSettings {
@@ -79,6 +138,7 @@ export interface OfficeSettings {
   networkSyncCode?: string;
   theme?: 'light' | 'dark';
   language?: 'ar' | 'en';
+  securityQuestions?: SecurityQuestionAnswer[];
 }
 
 export interface AuthSession {
@@ -99,7 +159,8 @@ export type ViewMode =
   | 'day_closing' 
   | 'reports' 
   | 'settings'
-  | 'employee_portal';
+  | 'employee_portal'
+  | 'settlements';
 
 export interface DateRangeFilter {
   type: 'today' | 'yesterday' | 'week' | 'month' | 'custom';

@@ -1,3 +1,14 @@
+/**
+ * @license
+ * SPDX-License-Identifier: Apache-2.0
+ */
+
+/**
+ * دوال التنسيق المشتركة — عملات، تواريخ، أوقات، CSV، Strings التاريخ.
+ * يستخدم `Intl.NumberFormat` و `Intl.DateTimeFormat` مع locale `ar-SA`/`en-US`.
+ * يصدّر `DEFAULT_CURRENCY` للعملة الافتراضية الموحّدة.
+ * @module lib/formatters
+ */
 import { PaymentMethod } from '../types';
 import { Language } from './i18n';
 

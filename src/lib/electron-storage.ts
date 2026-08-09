@@ -1,7 +1,13 @@
 /**
+ * @license
+ * SPDX-License-Identifier: Apache-2.0
+ */
+
+/**
  * Electron Storage Layer
  * يوفر طبقة وسيطة للاتصال بـ Electron API مع fallback إلى localStorage
- * هذا يسمح للتطبيق بالعمل في كل من البيئتين: المتصفح و Electron
+ * هذا يسمح للتطبيق بالعمل في كل من البيئتين: المتصفح و Electron.
+ * @module lib/electron-storage
  */
 
 import {
@@ -12,6 +18,8 @@ import {
   DayClosing,
   OfficeSettings,
   AuthSession,
+  AttendanceRecord,
+  Settlement,
 } from '../types';
 import { hashPin, isPlainPin } from './crypto';
 import { DEFAULT_CURRENCY } from './formatters';
@@ -50,12 +58,17 @@ declare global {
       getDayClosings: () => Promise<DayClosing[]>;
       saveDayClosing: (data: DayClosing) => Promise<boolean>;
       replaceDayClosings: (closings: DayClosing[]) => Promise<boolean>;
+      getAttendance: () => Promise<AttendanceRecord[]>;
+      replaceAttendance: (records: AttendanceRecord[]) => Promise<boolean>;
+      getSettlements: () => Promise<Settlement[]>;
+      replaceSettlements: (settlements: Settlement[]) => Promise<boolean>;
       getSettings: () => Promise<Partial<OfficeSettings>>;
       saveSettings: (settings: Partial<OfficeSettings>) => Promise<boolean>;
       loadAuthSession: () => Promise<AuthSession | null>;
       saveAuthSession: (session: AuthSession | null) => Promise<boolean>;
       resetToDemoData: () => Promise<boolean>;
       clearData: () => Promise<boolean>;
+      deleteOffice: () => Promise<boolean>;
       syncGetState: () => Promise<SyncStatus>;
       syncJoin: (code: string) => Promise<SyncStatus & { join?: { ok: boolean; error?: string } }>;
       onSyncStatus: (callback: (status: SyncStatus) => void) => () => void;
@@ -319,6 +332,56 @@ export async function saveDayClosings(closings: DayClosing[]): Promise<void> {
   }
 }
 
+// ==================== ATTENDANCE (سجلات الحضور) ====================
+
+export async function loadAttendance(): Promise<AttendanceRecord[]> {
+  if (isElectron()) {
+    return await window.electronAPI!.getAttendance();
+  }
+  const data = localStorage.getItem('officecash_attendance');
+  if (!data) {
+    return [];
+  }
+  try {
+    return JSON.parse(data);
+  } catch {
+    return [];
+  }
+}
+
+export async function saveAttendance(records: AttendanceRecord[]): Promise<void> {
+  if (isElectron()) {
+    await window.electronAPI!.replaceAttendance(records);
+  } else {
+    localStorage.setItem('officecash_attendance', JSON.stringify(records));
+  }
+}
+
+// ==================== SETTLEMENTS (التصفية والمستحقات) ====================
+
+export async function loadSettlements(): Promise<Settlement[]> {
+  if (isElectron()) {
+    return await window.electronAPI!.getSettlements();
+  }
+  const data = localStorage.getItem('officecash_settlements');
+  if (!data) {
+    return [];
+  }
+  try {
+    return JSON.parse(data);
+  } catch {
+    return [];
+  }
+}
+
+export async function saveSettlements(settlements: Settlement[]): Promise<void> {
+  if (isElectron()) {
+    await window.electronAPI!.replaceSettlements(settlements);
+  } else {
+    localStorage.setItem('officecash_settlements', JSON.stringify(settlements));
+  }
+}
+
 // ==================== AUTH SESSION ====================
 
 export async function loadAuthSession(): Promise<AuthSession | null> {
@@ -358,6 +421,8 @@ export async function resetToDemoData(): Promise<void> {
   await saveEntries([]);
   await saveExpenses([]);
   await saveDayClosings([]);
+  await saveAttendance([]);
+  await saveSettlements([]);
 }
 
 /**
@@ -374,6 +439,29 @@ export async function clearAllData(): Promise<void> {
     localStorage.removeItem('officecash_entries');
     localStorage.removeItem('officecash_expenses');
     localStorage.removeItem('officecash_day_closings');
+    localStorage.removeItem('officecash_attendance');
+    localStorage.removeItem('officecash_settlements');
+  }
+}
+
+/**
+ * حذف المكتب نهائياً: مسح كل البيانات التشغيلية + الإعدادات + جلسة المصادقة + رمز المزامنة.
+ * بعد هذه العملية يعود التطبيق لشاشة تسجيل مكتب جديد تماماً.
+ */
+export async function deleteOffice(): Promise<void> {
+  if (isElectron()) {
+    await window.electronAPI!.deleteOffice();
+  } else {
+    localStorage.removeItem('officecash_settings');
+    localStorage.removeItem('officecash_employees');
+    localStorage.removeItem('officecash_services');
+    localStorage.removeItem('officecash_entries');
+    localStorage.removeItem('officecash_expenses');
+    localStorage.removeItem('officecash_day_closings');
+    localStorage.removeItem('officecash_attendance');
+    localStorage.removeItem('officecash_settlements');
+    localStorage.removeItem('officecash_auth_session');
+    localStorage.removeItem('active_employee_id');
   }
 }
 
@@ -387,6 +475,8 @@ export async function exportBackupJSON(): Promise<string> {
     entries: await loadEntries(),
     expenses: await loadExpenses(),
     dayClosings: await loadDayClosings(),
+    attendance: await loadAttendance(),
+    settlements: await loadSettlements(),
   };
   return JSON.stringify(backup, null, 2);
 }
@@ -400,6 +490,8 @@ export async function importBackupJSON(jsonString: string): Promise<boolean> {
     if (Array.isArray(data.entries)) await saveEntries(data.entries);
     if (Array.isArray(data.expenses)) await saveExpenses(data.expenses);
     if (Array.isArray(data.dayClosings)) await saveDayClosings(data.dayClosings);
+    if (Array.isArray(data.attendance)) await saveAttendance(data.attendance);
+    if (Array.isArray(data.settlements)) await saveSettlements(data.settlements);
     return true;
   } catch (err) {
     console.error('Failed to import backup:', err);

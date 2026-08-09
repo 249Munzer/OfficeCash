@@ -1,4 +1,16 @@
-﻿import React from 'react';
+﻿/**
+ * شريط التنقل الجانبي — قائمة الشاشات (لوحة التحكم، إدخال سريع، معاملات، تقارير، إعدادات...)
+ * مع شارات الإشعارات للعدد اليومي للمعاملات والمصروفات والتسويات المعلقة، ودعم اللغة.
+ * @component
+ * @param {Object} props
+ * @param {ViewMode} props.currentView - الشاشة الحالية المحددة
+ * @param {Function} props.onNavigate - التنقل إلى شاشة
+ * @param {number} props.todayEntriesCount - عدد معاملات اليوم (شارة)
+ * @param {number} props.todayExpensesCount - عدد مصروفات اليوم (شارة)
+ * @param {number} props.settlementsPendingCount - عدد التسويات المعلقة (شارة)
+ * @param {string} props.language - اللغة: عربي أو إنجليزي (اختياري)
+ */
+import React from 'react';
 import {
   LayoutDashboard,
   PlusCircle,
@@ -12,6 +24,7 @@ import {
   ChevronLeft,
   ChevronRight,
   UserCheck,
+  HandCoins,
 } from 'lucide-react';
 import { ViewMode } from '../types';
 import { makeT } from '../lib/i18n';
@@ -21,6 +34,7 @@ interface SidebarProps {
   onNavigate: (view: ViewMode) => void;
   todayEntriesCount: number;
   todayExpensesCount: number;
+  settlementsPendingCount: number;
   language?: 'ar' | 'en';
 }
 
@@ -29,6 +43,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
   onNavigate,
   todayEntriesCount,
   todayExpensesCount,
+  settlementsPendingCount,
   language = 'ar',
 }) => {
   const t = makeT(language);
@@ -59,6 +74,13 @@ export const Sidebar: React.FC<SidebarProps> = ({
       label: t('navEmployeePortal'),
       icon: <UserCheck className="w-4 h-4 text-blue-600" />,
       badgeColor: 'bg-blue-100 text-blue-800',
+    },
+    {
+      id: 'settlements',
+      label: t('navSettlements'),
+      icon: <HandCoins className="w-4 h-4 text-emerald-600" />,
+      badge: settlementsPendingCount,
+      badgeColor: 'bg-emerald-100 text-emerald-800',
     },
     {
       id: 'transactions',

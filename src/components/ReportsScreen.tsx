@@ -1,4 +1,16 @@
-﻿import React, { useState } from 'react';
+﻿/**
+ * شاشة التقارير — ملخص مالي، أداء الموظفين، تحليل الخدمات،
+ * وتقرير شهري مع تصفية بالمدى الزمني (اليوم/الأمس/الأسبوع/الشهر/مخصص) وطباعة.
+ * @component
+ * @param {Object} props
+ * @param {FinancialEntry[]} props.entries - سجل المعاملات
+ * @param {Expense[]} props.expenses - سجل المصروفات
+ * @param {Employee[]} props.employees - قائمة الموظفين
+ * @param {Service[]} props.services - قائمة الخدمات
+ * @param {OfficeSettings} props.settings - اللغة والعملة
+ * @param {Function} props.onPrintReport - طباعة تقرير (اختياري)
+ */
+import React, { useState } from 'react';
 import {
   BarChart3,
   Printer,
@@ -23,6 +35,7 @@ import {
   getPaymentMethodLabel,
 } from '../lib/formatters';
 import { makeT, translations } from '../lib/i18n';
+import { commissionTotalForEntries, computeNetIncome } from '../lib/settlement';
 
 interface ReportsScreenProps {
   entries: FinancialEntry[];
@@ -102,7 +115,8 @@ export const ReportsScreen: React.FC<ReportsScreenProps> = ({
     .filter((e) => e.paymentMethod === 'transfer')
     .reduce((sum, e) => sum + e.amount, 0);
   const monthlyTotalExpenses = monthExpenses.reduce((sum, ex) => sum + ex.amount, 0);
-  const monthlyNetIncome = monthlyRevenue - monthlyTotalExpenses;
+  const monthlyCommission = commissionTotalForEntries(monthEntries, employees);
+  const monthlyNetIncome = monthlyRevenue - monthlyTotalExpenses - monthlyCommission;
 
   // Financial totals
   const totalRevenue = filteredEntries.reduce((sum, e) => sum + e.amount, 0);
@@ -111,7 +125,8 @@ export const ReportsScreen: React.FC<ReportsScreenProps> = ({
     .reduce((sum, e) => sum + e.amount, 0);
 
   const totalExpenses = filteredExpenses.reduce((sum, ex) => sum + ex.amount, 0);
-  const netIncome = totalRevenue - totalExpenses;
+  const employeeCommission = commissionTotalForEntries(filteredEntries, employees);
+  const netIncome = computeNetIncome(totalRevenue, totalExpenses, employeeCommission);
 
   // Employee breakdown
   const employeeReport = employees.map((emp) => {
@@ -345,6 +360,11 @@ export const ReportsScreen: React.FC<ReportsScreenProps> = ({
           <span className="text-xl font-black text-blue-700 dir-ltr block">
             {formatCurrency(netIncome, settings.currency, lang)}
           </span>
+          {employeeCommission > 0 && (
+            <span className="text-xs text-rose-600 font-bold block mt-1">
+              {t('commissionDeductedLabel')} {formatCurrency(employeeCommission, settings.currency, lang)}
+            </span>
+          )}
           <span className="text-xs text-blue-700 font-medium">{t('netIncomeHint')}</span>
         </div>
       </div>
@@ -570,6 +590,10 @@ export const ReportsScreen: React.FC<ReportsScreenProps> = ({
                   <div className="flex justify-between py-1 border-b text-rose-800">
                     <span>{t('deductExpenses')}</span>
                     <strong className="dir-ltr">- {formatCurrency(monthlyTotalExpenses, settings.currency, lang)}</strong>
+                  </div>
+                  <div className="flex justify-between py-1 border-b text-rose-800">
+                    <span>{t('commissionDeducted')}</span>
+                    <strong className="dir-ltr">- {formatCurrency(monthlyCommission, settings.currency, lang)}</strong>
                   </div>
                   <div className="flex justify-between py-2 font-black text-sm text-emerald-800 bg-emerald-100 p-2 rounded-lg">
                     <span>{t('netProfitSettlement')}</span>
