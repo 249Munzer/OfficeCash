@@ -40,40 +40,6 @@
 
 ---
 
-### 🧑‍💻 للمطورين فقط (اختياري — غير مطلوب للاستخدام)
-
-الكود متاح للقراءة، ويمكن للمطورين البناء من المصدر:
-
-```bash
-# 1. استنساخ المستودع
-git clone https://github.com/249Munzer/OfficeCash.git
-cd OfficeCash
-
-# 2. تثبيت التبعيات
-npm install
-
-# 3. تشغيل وضع التطوير (Vite + Electron)
-npm run electron:dev
-
-# أو: تشغيل واجهة الويب فقط (للتصميم/الاختبار)
-npm run dev
-```
-
-### أوامر npm المتاحة (للمطورين)
-
-| الأمر | الوصف |
-|-------|-------|
-| `npm run dev` | خادم تطوير Vite (http://localhost:3000) |
-| `npm run electron:dev` | Electron + Vite HMR متزامن |
-| `npm run build` | بناء إنتاج (يخرج في `dist/`) |
-| `npm run preview` | معاينة بناء الإنتاج محلياً |
-| `npm run lint` | فحص TypeScript (`tsc --noEmit`) |
-| `npm test` | تشغيل اختبارات Vitest (203 اختبار) |
-| `npm run test:watch` | اختبارات في وضع المراقبة |
-| `npm run electron:build` | بناء مثبت NSIS (معالج خطوات + حماية البيانات) (`dist-electron/`) |
-
----
-
 ## 📁 هيكل المشروع
 
 ```
