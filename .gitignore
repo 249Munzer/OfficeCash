@@ -4,7 +4,38 @@ dist/
 dist-electron/
 coverage/
 *.db
+*.db-journal
+*.sqlite
 .DS_Store
+Thumbs.db
 *.log
 .env*
 !.env.example
+.env.example
+
+# المفاتيح والأسرار (لا تُرفع أبداً)
+*.pem
+*.key
+*.p12
+*.pfx
+id_rsa
+id_ed25519
+*.p8
+
+# أدوات التطوير
+.idea/
+.vscode/
+*.suo
+*.user
+npm-debug.log*
+yarn-error.log*
+
+# أنظمة التشغيل
+Desktop.ini
+$RECYCLE.BIN/
+
+# نسخ احتياطية مؤقتة
+*.bak
+*.orig
+*.tmp
+*.swp
